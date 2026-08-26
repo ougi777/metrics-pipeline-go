@@ -6,14 +6,14 @@
 
 ## Acceptance Criteria
 
-- [ ] 创建 Go 1.22 或更高版本的单一 Go module。
-- [ ] 创建 `cmd/api`、`cmd/worker` 和 `cmd/sim` 三个独立入口。
-- [ ] 三个入口均可独立编译。
-- [ ] 创建 `internal/config`、`internal/domain`、`internal/transport/http`、`internal/messaging`、`internal/storage/postgres` 和 `internal/sse` 包边界。
-- [ ] 运行配置统一从环境变量读取，并支持本地 `.env` 加载。
-- [ ] API、worker、sim 和运维日志统一使用 `log/slog` 输出结构化 JSON。
-- [ ] 提供执行 `go test -cover ./...` 的本地测试命令。
-- [ ] 提供 golangci-lint 配置并通过 `golangci-lint run`。
+- [x] 创建 Go 1.22 或更高版本的单一 Go module。
+- [x] 创建 `cmd/api`、`cmd/worker` 和 `cmd/sim` 三个独立入口。
+- [x] 三个入口均可独立编译。
+- [x] 创建 `internal/config`、`internal/domain`、`internal/transport/http`、`internal/messaging`、`internal/storage/postgres` 和 `internal/sse` 包边界。
+- [x] 运行配置统一从环境变量读取，并支持本地 `.env` 加载。
+- [x] API、worker、sim 和运维日志统一使用 `log/slog` 输出结构化 JSON。
+- [x] 提供执行 `go test -cover ./...` 的本地测试命令。
+- [x] 提供 golangci-lint 配置并通过 `golangci-lint run`。
 
 ## Dependencies
 

@@ -1,4 +1,4 @@
-// Package config loads and validates process configuration from the environment.
+// Package config 从环境变量加载并校验进程配置。
 package config
 
 import (
@@ -12,7 +12,7 @@ import (
 
 const defaultShutdownTimeout = 15 * time.Second
 
-// Config contains the common runtime settings shared by every process.
+// Config 包含所有进程共享的运行时配置。
 type Config struct {
 	ServiceName     string
 	InstanceID      string
@@ -22,8 +22,8 @@ type Config struct {
 	LogLevel        string
 }
 
-// Load reads an optional local .env file, then resolves configuration from
-// environment variables. Existing environment variables take precedence.
+// Load 先读取可选的本地 .env 文件，再从环境变量解析配置。
+// 已存在的环境变量拥有更高优先级。
 func Load(defaultServiceName string) (Config, error) {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return Config{}, fmt.Errorf("load .env: %w", err)
@@ -50,7 +50,7 @@ func Load(defaultServiceName string) (Config, error) {
 	return cfg, nil
 }
 
-// Validate verifies the common settings before a process starts.
+// Validate 在进程启动前校验公共配置。
 func (c Config) Validate() error {
 	if strings.TrimSpace(c.ServiceName) == "" {
 		return fmt.Errorf("SERVICE_NAME must not be empty")

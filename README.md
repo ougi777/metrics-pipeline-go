@@ -75,3 +75,19 @@ docker compose down
 ```
 
 RabbitMQ 管理界面地址为 `http://localhost:15672`，本地默认账号和密码均为 `metrics`。
+
+## 数据库迁移
+
+`migrate` 一次性容器在 PostgreSQL 健康后自动执行，API 和 worker 会等待迁移成功。迁移文件位于 `migrations/`，已应用版本及 SHA-256 校验和记录在 `schema_migrations`。
+
+每次执行迁移都会确保 UTC 今天前 8 天至未来 2 天的指标与事件日分区存在。已有数据库可安全重复执行：
+
+```powershell
+docker compose run --rm migrate
+```
+
+本机运行迁移时，默认连接 `localhost:5432`：
+
+```powershell
+go run ./cmd/migrate
+```

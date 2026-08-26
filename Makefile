@@ -1,4 +1,4 @@
-.PHONY: build test lint check compose-build compose-up compose-stop compose-down compose-test
+.PHONY: build test lint check migrate compose-build compose-up compose-stop compose-down compose-test
 
 build:
 	go build -buildvcs=false ./cmd/...
@@ -10,6 +10,9 @@ lint:
 	golangci-lint run
 
 check: build test lint
+
+migrate:
+	go run ./cmd/migrate
 
 compose-build:
 	docker compose build

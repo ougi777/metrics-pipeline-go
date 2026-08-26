@@ -11,6 +11,8 @@ x-app: &app
       condition: service_healthy
     rabbitmq:
       condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
 
 x-app-environment: &app-environment
   DATABASE_URL: postgres://${POSTGRES_USER:-metrics}:${POSTGRES_PASSWORD:-metrics}@postgres:5432/${POSTGRES_DB:-metrics}?sslmode=disable
@@ -58,6 +60,22 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+  migrate:
+    image: metrics-pipeline:local
+    command: ["/app/migrate"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-metrics}:${POSTGRES_PASSWORD:-metrics}@postgres:5432/${POSTGRES_DB:-metrics}?sslmode=disable
+      MIGRATIONS_DIR: /migrations
+      MIGRATION_TIMEOUT: ${MIGRATION_TIMEOUT:-60s}
+      PARTITION_PAST_DAYS: ${PARTITION_PAST_DAYS:-8}
+      PARTITION_FUTURE_DAYS: ${PARTITION_FUTURE_DAYS:-2}
+    networks:
+      - pipeline
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   api:
     <<: *app

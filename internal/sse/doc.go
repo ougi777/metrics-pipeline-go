@@ -1,2 +1,2 @@
-// Package sse contains server-sent event delivery and subscription logic.
+// Package sse 包含服务端事件投递与订阅逻辑。
 package sse

@@ -1,4 +1,4 @@
-// Package app provides the common process bootstrap used by service commands.
+// Package app 提供各服务命令共用的进程启动逻辑。
 package app
 
 import (
@@ -10,13 +10,13 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/logging"
 )
 
-// Run loads configuration and emits the process startup event.
+// Run 读取配置并输出进程启动事件。
 func Run(defaultServiceName string) int {
 	_, _, exitCode := initialize(defaultServiceName)
 	return exitCode
 }
 
-// RunService initializes a long-running service and waits for cancellation.
+// RunService 初始化常驻服务并等待取消信号。
 func RunService(ctx context.Context, defaultServiceName string) int {
 	_, logger, exitCode := initialize(defaultServiceName)
 	if exitCode != 0 {

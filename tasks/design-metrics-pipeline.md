@@ -7,7 +7,7 @@ Status: Draft
 
 ## Abstract / 摘要
 
-我们采用一条可恢复的异步链路交付 metrics-pipeline v1：API 完整校验批次并等待 RabbitMQ publisher confirm，worker 以 500 条展开指标或 1 秒为阈值批量消费，PostgreSQL 在同一事务中写入指标点、日摘要、任务事件和 Outbox，Outbox relay 再把事件广播到各 API 实例。历史查询在 SQL 层按时间分桶，SSE 通过任务级事件序号和 7 天事件日志完成补发。v1 的运行依赖限定为 Go、RabbitMQ 和 PostgreSQL；数据库唯一键与消息确认顺序共同提供 exactly-once effect，固定 HTTP/SSE 契约保持稳定。
+我们采用一条可恢复的异步链路交付 metrics-pipeline v1：API 完整校验批次并等待 RabbitMQ publisher confirm，worker 以 500 条展开指标或 1 秒为阈值批量消费，PostgreSQL 在同一事务中写入指标点、任务事件和 Outbox，Outbox relay 再把事件广播到各 API 实例。历史查询和任务摘要直接聚合原始分区数据，SSE 通过任务级事件序号和 7 天事件日志完成补发。v1 的运行依赖限定为 Go、RabbitMQ 和 PostgreSQL；数据库唯一键与消息确认顺序共同提供 exactly-once effect，固定 HTTP/SSE 契约保持稳定。
 
 ## Background / 背景与动机
 
@@ -41,7 +41,7 @@ worker 若先提交指标再直接发布实时事件，进程可能在两步之�
 
 ### 7 天数据量要求查询与保留策略从第一版就具备边界
 
-按常见的两个指标 key 估算，持续负载一天约形成 8,640 万条指标行，7 天约形成 6.05 亿条。按 UTC 自然日分区让删除完整过期日变成元数据操作；任务日摘要把摘要查询压缩到每个 key 最多 8 条聚合记录。8 小时曲线仍从原始点读取，并利用任务、key、时间和 step 索引在 SQL 层完成降采样。
+按常见的两个指标 key 估算，持续负载一天约形成 8,640 万条指标行，7 天约形成 6.05 亿条。按 UTC 自然日分区让删除完整过期日变成元数据操作；历史曲线和任务摘要从原始点读取，并利用任务、key、时间和 step 索引在 SQL 层完成聚合。首次完整压测将验证 N4/N5，实测结果决定预聚合的引入时机。
 
 ## Design / Proposal / 设计
 
@@ -151,9 +151,9 @@ type flushPart struct {
 
 确认与拒绝始终由拥有 Channel 的 goroutine 执行。Channel 断开时，broker 自动回收所有未确认 delivery；连接恢复逻辑创建新 Channel、重声明拓扑、恢复 QoS 和消费。这个边界避开 `amqp091-go` Channel 的并发访问风险。
 
-### 一个 PostgreSQL 事务提交指标、摘要、事件和发布意图
+### 一个 PostgreSQL 事务提交指标、事件和发布意图
 
-核心表承担五种职责：
+核心表承担四种职责：
 
 ```sql
 CREATE TABLE metric_points (
@@ -171,20 +171,6 @@ CREATE INDEX metric_points_task_time
 CREATE TABLE task_event_counters (
     task_id varchar(64) PRIMARY KEY,
     last_event_seq bigint NOT NULL DEFAULT 0
-);
-
-CREATE TABLE task_metric_daily (
-    day date NOT NULL,
-    task_id varchar(64) NOT NULL,
-    key varchar(32) NOT NULL,
-    sample_count bigint NOT NULL,
-    value_sum double precision NOT NULL,
-    min_value double precision NOT NULL,
-    max_value double precision NOT NULL,
-    last_value double precision NOT NULL,
-    last_step integer NOT NULL,
-    last_ts timestamptz NOT NULL,
-    PRIMARY KEY (day, task_id, key)
 );
 
 CREATE TABLE metric_events (
@@ -215,9 +201,9 @@ CREATE TABLE metric_outbox (
 每个 flush 开启事务并通过一次 `pgx.Batch.SendBatch` 提交两类 DML：
 
 1. 为本 flush 涉及的任务执行 `INSERT ... ON CONFLICT DO NOTHING`，保证 `task_event_counters` 行存在。
-2. 执行一个数据修改 CTE：插入 `metric_points` 并取得 `RETURNING` 行；按 day/task/key 更新 `task_metric_daily`；按 task 聚合真实新增行；锁定并递增任务计数器；插入 `metric_events` 和 `metric_outbox`；返回事件及重复 step 诊断。
+2. 执行一个数据修改 CTE：插入 `metric_points` 并取得 `RETURNING` 行；按 task 聚合真实新增行；锁定并递增任务计数器；插入 `metric_events` 和 `metric_outbox`；返回事件及重复 step 诊断。
 
-事务在读取全部 batch result 并关闭 batch 后提交。COMMIT 成功才推进 delivery 跟踪器。`ON CONFLICT DO NOTHING` 的 `RETURNING` 只包含真实新增行，因此纯重复 flush 不会更新摘要，也不会生成 SSE 事件。
+事务在读取全部 batch result 并关闭 batch 后提交。COMMIT 成功才推进 delivery 跟踪器。`ON CONFLICT DO NOTHING` 的 `RETURNING` 只包含真实新增行，因此纯重复 flush 不会生成 SSE 事件。
 
 任务计数器行同时承担序号分配锁。并发 worker 写入同一任务时会在这行串行化，每个包含新增指标的任务每个 flush 递增一次；不同任务可以并行。序号允许在事务回滚时复用，已提交事件始终保持连续递增。
 
@@ -296,27 +282,18 @@ ORDER BY key, ts, step;
 
 原始点使用 `v=min=max=value`，因此同一响应结构可以同时容纳稀疏原始 key 和高频降采样 key。`downsampled=false` 时 `bucket_ms` 返回 `0`；`downsampled=true` 时返回实际毫秒桶宽。`max_points` 默认 500，合法范围为 1–5000。
 
-### 日摘要让摘要请求的成本由 key 数量决定
+### 摘要直接聚合保留窗口内的原始指标
 
-`task_metric_daily` 只聚合 `metric_points RETURNING` 中的新增行。每行维护 `count`、`sum`、`min`、`max`，并以 `(ts, step)` 最大值维护该日最后一点。摘要接口最多扫描当前 7 天窗口内每个 key 的 8 条日记录，然后组合：
-
-- `min` 取各日最小值的最小值。
-- `max` 取各日最大值的最大值。
-- `avg` 使用 `sum(value_sum) / sum(sample_count)`。
-- `last` 取 `(last_ts, last_step)` 最大的日记录。
-- 任务级 `updated_at` 和 `last_step` 取所有 key 中 `(last_ts, last_step)` 最大的记录。
-
-这个读路径的行数与原始采样频率解耦，P95 100ms 目标主要受数据库往返和并发影响。保留任务删除边界日的过期原始行后，会在同一维护流程中重算该日摘要；完整过期日的摘要行直接删除。
+摘要接口从 `metric_points` 读取当前 7 天窗口内的数据，按 key 计算 `min`、`max` 和 `avg`，并按 `(ts, step)` 的确定性顺序选取最新值。任务级 `updated_at` 和 `last_step` 取所有 key 中最新的指标点。查询依靠分区裁剪和 `(task_id, key, ts, step)` 索引控制扫描范围，N5 压测结果作为后续引入预聚合的依据。
 
 ### 分区维护同时覆盖预建、精确保留和并发安全
 
 `metric_points` 按指标 `ts` 的 UTC 自然日分区，`metric_events` 按 `created_at` 的 UTC 自然日分区。迁移服务创建父表、索引模板和当前分区；worker 中的 maintenance leader 使用 advisory lock，每小时预建过去 8 天至未来 2 天的分区。
 
-保留截止时间为数据库 `clock_timestamp() - interval '7 days'`。维护任务执行三类操作：
+保留截止时间为数据库 `clock_timestamp() - interval '7 days'`。维护任务执行两类操作：
 
-1. 删除上界早于截止时间的完整日分区。
-2. 在截止时间所在分区内分批删除过期行，使窗口保持精确的 168 小时。
-3. 重算边界日的 `task_metric_daily`，并清理对应过期事件与已发布 Outbox。
+1. 删除指标与事件中上界早于截止时间的完整日分区，并清理对应的已发布 Outbox。
+2. 在截止时间所在分区内分批删除过期指标、事件及已发布 Outbox，使窗口保持精确的 168 小时。
 
 每批边界删除限制行数并记录耗时、行数和剩余量，减少长事务与 autovacuum 压力。待发布 Outbox 始终保留，已发布记录可在事件确认保留后清理。`task_event_counters` 体积与任务数同阶，并持续保留序号，避免任务 ID 再次出现时复用 SSE ID。
 
@@ -360,9 +337,9 @@ worker 在 commit 后直接 publish 的方案包含永久事件缺口。分布�
 
 按日 RANGE 分区支持索引裁剪和快速删除完整过期日，SQL 时间桶覆盖当前查询契约。TimescaleDB hypertable 会提供成熟的保留策略与 continuous aggregate，同时增加扩展安装、镜像、升级和故障排查要求。当前验收规模可以由原生 PostgreSQL 覆盖，TimescaleDB 的评估触发点设为单实例写入或查询压测持续越过目标值。
 
-### 日摘要用固定写放大换取稳定的摘要延迟
+### 摘要先采用原始分区聚合
 
-直接扫描 7 天原始数据让摘要延迟随采样频率增长，Redis 缓存又引入缓存重建和一致性路径。日摘要只对真实新增行执行一次按 key/day 的 upsert，读取量固定在任务 key 数量乘保留天数。v1 接受每个 flush 的少量聚合写入，摘要结果继续由 PostgreSQL 事务维护。
+v1 直接聚合 7 天保留窗口内的 `metric_points`，保持写入路径和数据模型简单。分区裁剪与查询索引覆盖当前验收路径，N5 压测持续超过 100ms 时再评估日级预聚合、分钟级预聚合或缓存方案。
 
 ### 任务级计数器让游标连续且易于验证
 
@@ -396,7 +373,7 @@ step 桶适合 step 均匀、时间抖动明显的训练数据，响应契约当
 
 ### 可靠性带来可量化的写入和存储成本
 
-每条真实新增指标会写入原始分区并参与一条日摘要 upsert；每个 task/flush 额外生成一条事件和一条 Outbox。Outbox relay 与 API bridge可能重复传输事件，消费者按事件序号去重。7 天事件 payload 会占用额外磁盘，容量评估应使用模拟器的实际压缩后行宽测量，并在压测报告中记录每日增长量。
+每条真实新增指标会写入原始分区；每个 task/flush 额外生成一条事件和一条 Outbox。Outbox relay 与 API bridge 可能重复传输事件，消费者按事件序号去重。7 天事件 payload 会占用额外磁盘，容量评估应使用模拟器的实际压缩后行宽测量，并在压测报告中记录每日增长量。
 
 ### 保留清理会改变超过 7 天的查询与续传结果
 
@@ -413,7 +390,7 @@ Compose 中的 `migrate` 一次性服务先完成 schema 版本升级，API 与 
 1. **骨架与契约**：建立 Go module、三个入口、配置、日志、Gin 错误中间件、迁移服务、Compose 和单元测试命令。门槛为三个二进制可编译，`healthz/readyz` 行为通过测试。
 2. **可靠接入**：实现 RabbitMQ 拓扑、publisher 工作池、confirm、mandatory return 和连接恢复。门槛为 broker 重启与 unroutable 测试都返回预期结果。
 3. **幂等落库**：实现 delivery tracker、双阈值 batcher、单事务 CTE、分区维护和 audit。门槛为 2% 重复注入、事务失败及 worker `kill -9` 后对账通过。
-4. **查询与摘要**：实现交集过滤、按 key 计数、时间桶与日摘要读取。门槛为边界语义契约测试以及 N4/N5 压测达标。
+4. **查询与摘要**：实现交集过滤、按 key 计数、时间桶与原始分区聚合。门槛为边界语义契约测试以及 N4/N5 压测达标。
 5. **事件与 SSE**：实现 Outbox relay、API event bridge、Hub、补发握手、心跳和慢订阅者退出。门槛为断线补发、API 重启、重复广播去重和 goroutine 泄漏测试通过。
 6. **验收工具与收口**：完成模拟器、故障注入、结构化报告、7 天清理演练和完整 E2E。门槛为 N1–N6 全部生成可复现报告。
 
@@ -422,7 +399,7 @@ Compose 中的 `migrate` 一次性服务先完成 schema 版本升级，API 与 
 | 层次 | 重点用例 | 工具 |
 | --- | --- | --- |
 | 单元 | 整批校验、消息展开、bucket 计算、delivery tracker、SSE 游标 | `testing`、`testify` |
-| PostgreSQL 集成 | 并发幂等、事务回滚、任务序号、日摘要、分区裁剪 | Compose PostgreSQL |
+| PostgreSQL 集成 | 并发幂等、事务回滚、任务序号、摘要聚合、分区裁剪 | Compose PostgreSQL |
 | RabbitMQ 集成 | confirm、return、重连、manual ack、DLQ、重复广播 | Compose RabbitMQ |
 | HTTP 契约 | 五个 endpoint、错误包络、空结果、404、SSE 格式 | `httptest` |
 | E2E | 提交到查询、摘要、SSE、重连补发、kill -9 恢复 | `tests/e2e` + Compose |
@@ -445,7 +422,7 @@ E2E 使用唯一测试前缀创建 task ID，并逐个删除明确测试 task �
 
 - N4 在索引和 SQL 调优后仍超过 200ms：评估预聚合历史表或 TimescaleDB。
 - 单 relay 的 Outbox 积压持续超过 1 秒：评估按 task 分片的多 relay 与 API 重排缓冲。
-- 日摘要行锁等待进入 flush 延迟 P95 的主要部分：评估内存合并或异步摘要重建。
+- N5 在索引和 SQL 调优后仍超过 100ms：评估日级预聚合、分钟级预聚合或缓存。
 - 事件日志的 7 天容量超过部署预算：评估 payload 压缩、事件合并上限与外部归档。
 
 ## Appendix / 附录
@@ -459,7 +436,7 @@ E2E 使用唯一测试前缀创建 task ID，并逐个删除明确测试 task �
 5. 同一任务的已提交 `event_seq` 严格递增。
 6. SSE 对每条连接只发送 `event_seq > lastSent` 的 metrics 事件。
 7. 历史查询在 PostgreSQL 完成降采样，Go 进程只组装有界结果。
-8. 日摘要只统计保留窗口内的唯一指标行。
+8. 任务摘要只统计保留窗口内的唯一指标行。
 
 ### v1 配置按职责分组并在启动时集中校验
 

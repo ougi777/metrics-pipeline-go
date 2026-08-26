@@ -1,4 +1,4 @@
-// Package logging creates the structured logger shared by all processes.
+// Package logging 创建所有进程共享的结构化日志器。
 package logging
 
 import (
@@ -6,7 +6,7 @@ import (
 	"log/slog"
 )
 
-// New returns a JSON logger enriched with process identity fields.
+// New 返回带进程标识字段的 JSON 日志器。
 func New(output io.Writer, serviceName, instanceID, level string) *slog.Logger {
 	var slogLevel slog.Level
 	switch level {

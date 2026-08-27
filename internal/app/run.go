@@ -1,4 +1,4 @@
-// Package app 提供各服务命令共用的进程启动逻辑。
+// Package app 提供各服务命令共用的启动基础设施。
 package app
 
 import (
@@ -10,31 +10,19 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/logging"
 )
 
-// Run 读取配置并输出进程启动事件。
-func Run(defaultServiceName string) int {
-	_, _, exitCode := initialize(defaultServiceName)
-	return exitCode
+// Runtime 保存服务启动后会被各进程装配层复用的公共对象。
+type Runtime struct {
+	Config config.Config
+	Logger *slog.Logger
 }
 
-// RunService 初始化常驻服务并等待取消信号。
-func RunService(ctx context.Context, defaultServiceName string) int {
-	_, logger, exitCode := initialize(defaultServiceName)
-	if exitCode != 0 {
-		return exitCode
-	}
-
-	<-ctx.Done()
-	logger.Info("service stopped", slog.Any("reason", ctx.Err()))
-
-	return 0
-}
-
-func initialize(defaultServiceName string) (config.Config, *slog.Logger, int) {
+// Bootstrap 读取配置、初始化日志，并返回进程装配所需的公共运行时对象。
+func Bootstrap(defaultServiceName string) (Runtime, int) {
 	cfg, err := config.Load(defaultServiceName)
 	if err != nil {
 		logger := bootstrapLogger(defaultServiceName)
 		logger.Error("configuration failed", slog.Any("error", err))
-		return config.Config{}, logger, 1
+		return Runtime{Logger: logger}, 1
 	}
 
 	logger := logging.New(os.Stdout, cfg.ServiceName, cfg.InstanceID, cfg.LogLevel)
@@ -45,7 +33,15 @@ func initialize(defaultServiceName string) (config.Config, *slog.Logger, int) {
 		slog.Duration("shutdown_timeout", cfg.ShutdownTimeout),
 	)
 
-	return cfg, logger, 0
+	return Runtime{Config: cfg, Logger: logger}, 0
+}
+
+// WaitForCancel 是尚未接入后台工作循环的常驻服务占位启动逻辑。
+func WaitForCancel(ctx context.Context, logger *slog.Logger) int {
+	<-ctx.Done()
+	logger.Info("service stopped", slog.Any("reason", ctx.Err()))
+
+	return 0
 }
 
 func bootstrapLogger(serviceName string) *slog.Logger {

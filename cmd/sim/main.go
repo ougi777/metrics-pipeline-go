@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/ougi777/metrics-pipeline-go/internal/app"
+	simapp "github.com/ougi777/metrics-pipeline-go/internal/app/sim"
 )
 
 func main() {
-	os.Exit(app.Run("sim"))
+	os.Exit(simapp.Run())
 }

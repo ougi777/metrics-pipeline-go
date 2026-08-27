@@ -6,14 +6,14 @@
 
 ## Acceptance Criteria
 
-- [ ] 实现 `POST /api/v1/ingest/metrics`。
-- [ ] 接受规范定义的 `task_id` 和 `batch` JSON 结构。
-- [ ] 单个 batch 最多包含 500 个采样点。
-- [ ] 校验必填字段、字段类型、非负 step、时间戳和数值字段边界。
-- [ ] 任一采样点校验失败时整批拒绝并返回 `400 INVALID_PARAMS`。
-- [ ] 错误响应统一使用 `{"error":{"code":"...","message":"..."}}`。
-- [ ] 合法请求返回规范定义的 `accepted` 和 `task_id`。
-- [ ] 为请求边界、整批拒绝和错误响应编写单元测试。
+- [x] 实现 `POST /api/v1/ingest/metrics`。
+- [x] 接受规范定义的 `task_id` 和 `batch` JSON 结构。
+- [x] 单个 batch 最多包含 500 个采样点。
+- [x] 校验必填字段、字段类型、非负 step、时间戳和数值字段边界。
+- [x] 任一采样点校验失败时整批拒绝并返回 `400 INVALID_PARAMS`。
+- [x] 错误响应统一使用 `{"error":{"code":"...","message":"..."}}`。
+- [x] 合法请求返回规范定义的 `accepted` 和 `task_id`。
+- [x] 为请求边界、整批拒绝和错误响应编写单元测试。
 
 ## Dependencies
 

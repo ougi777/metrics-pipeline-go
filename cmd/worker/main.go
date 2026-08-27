@@ -6,12 +6,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ougi777/metrics-pipeline-go/internal/app"
+	workerapp "github.com/ougi777/metrics-pipeline-go/internal/app/worker"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	os.Exit(app.RunService(ctx, "worker"))
+	os.Exit(workerapp.Run(ctx))
 }

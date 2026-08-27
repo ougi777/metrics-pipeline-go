@@ -2,25 +2,44 @@ package app
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 )
 
-func TestRunServiceStopsWhenContextIsCanceled(t *testing.T) {
+func TestWaitForCancelStopsWhenContextIsCanceled(t *testing.T) {
 	setValidEnvironment(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	if exitCode := RunService(ctx, "api"); exitCode != 0 {
-		t.Fatalf("RunService() exit code = %d, want 0", exitCode)
+	if exitCode := WaitForCancel(ctx, logger); exitCode != 0 {
+		t.Fatalf("WaitForCancel() exit code = %d, want 0", exitCode)
 	}
 }
 
-func TestRunServiceReturnsFailureForInvalidConfiguration(t *testing.T) {
+func TestBootstrapReturnsRuntimeForValidConfiguration(t *testing.T) {
+	setValidEnvironment(t)
+
+	runtime, exitCode := Bootstrap("api")
+	if exitCode != 0 {
+		t.Fatalf("Bootstrap() exit code = %d, want 0", exitCode)
+	}
+	if runtime.Config.ServiceName != "api" {
+		t.Fatalf("ServiceName = %q, want api", runtime.Config.ServiceName)
+	}
+	if runtime.Logger == nil {
+		t.Fatal("Logger is nil")
+	}
+}
+
+func TestBootstrapReturnsFailureForInvalidConfiguration(t *testing.T) {
 	setValidEnvironment(t)
 	t.Setenv("SHUTDOWN_TIMEOUT", "invalid")
 
-	if exitCode := RunService(context.Background(), "api"); exitCode != 1 {
-		t.Fatalf("RunService() exit code = %d, want 1", exitCode)
+	_, exitCode := Bootstrap("api")
+	if exitCode != 1 {
+		t.Fatalf("Bootstrap() exit code = %d, want 1", exitCode)
 	}
 }
 

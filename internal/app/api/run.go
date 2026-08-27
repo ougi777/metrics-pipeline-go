@@ -6,9 +6,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
 	baseapp "github.com/ougi777/metrics-pipeline-go/internal/app"
+	"github.com/ougi777/metrics-pipeline-go/internal/config"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
 	ingestservice "github.com/ougi777/metrics-pipeline-go/internal/service/ingest"
 	httptransport "github.com/ougi777/metrics-pipeline-go/internal/transport/http"
@@ -21,26 +21,44 @@ func Run(ctx context.Context) int {
 		return exitCode
 	}
 
-	return runService(ctx, runtime.Config.HTTPAddr, runtime.Config.ShutdownTimeout, runtime.Logger)
+	return runService(ctx, runtime.Config, runtime.Logger)
 }
 
-func runService(ctx context.Context, httpAddr string, shutdownTimeout time.Duration, logger *slog.Logger) int {
+func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int {
 	if ctx.Err() != nil {
 		logger.Info("service stopped", slog.Any("reason", ctx.Err()))
 		return 0
 	}
 
-	metricPublisher := messaging.NoopMetricBatchPublisher{}
+	metricPublisher, err := messaging.NewRabbitMQMetricBatchPublisher(ctx, messaging.PublisherConfig{
+		URL:            cfg.AMQPURL,
+		Publishers:     cfg.AMQPPublishers,
+		WriteTimeout:   cfg.AMQPWriteTimeout,
+		ConfirmTimeout: cfg.AMQPConfirmTimeout,
+		MaxAttempts:    cfg.AMQPPublishMaxAttempts,
+		InitialBackoff: cfg.AMQPPublishInitialBackoff,
+		MaxBackoff:     cfg.AMQPPublishMaxBackoff,
+	}, logger)
+	if err != nil {
+		logger.Error("rabbitmq publisher initialization failed", slog.Any("error", err))
+		return 1
+	}
+	defer func() {
+		if err := metricPublisher.Close(); err != nil {
+			logger.Error("rabbitmq publisher close failed", slog.Any("error", err))
+		}
+	}()
+
 	ingestService := ingestservice.NewService(metricPublisher)
 	server := &http.Server{
-		Addr: httpAddr,
+		Addr: cfg.HTTPAddr,
 		Handler: httptransport.NewRouter(httptransport.RouterOptions{
 			IngestService: ingestService,
 		}),
 	}
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("http server starting", slog.String("addr", httpAddr))
+		logger.Info("http server starting", slog.String("addr", cfg.HTTPAddr))
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
@@ -51,7 +69,7 @@ func runService(ctx context.Context, httpAddr string, shutdownTimeout time.Durat
 
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			logger.Error("http server shutdown failed", slog.Any("error", err))

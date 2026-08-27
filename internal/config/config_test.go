@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func TestLoadFromEnvironment(t *testing.T) {
@@ -14,6 +16,13 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("ADMIN_ADDR", ":8081")
 	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
 	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("AMQP_URL", "amqp://metrics:metrics@localhost:5672/")
+	t.Setenv("AMQP_PUBLISHERS", "2")
+	t.Setenv("AMQP_WRITE_TIMEOUT", "2s")
+	t.Setenv("AMQP_CONFIRM_TIMEOUT", "3s")
+	t.Setenv("AMQP_PUBLISH_MAX_ATTEMPTS", "4")
+	t.Setenv("AMQP_PUBLISH_INITIAL_BACKOFF", "25ms")
+	t.Setenv("AMQP_PUBLISH_MAX_BACKOFF", "250ms")
 
 	cfg, err := Load("fallback")
 	if err != nil {
@@ -25,6 +34,27 @@ func TestLoadFromEnvironment(t *testing.T) {
 	}
 	if cfg.ShutdownTimeout != 15*time.Second {
 		t.Errorf("ShutdownTimeout = %s, want 15s", cfg.ShutdownTimeout)
+	}
+	if cfg.AMQPURL != "amqp://metrics:metrics@localhost:5672/" {
+		t.Errorf("AMQPURL = %q, want configured URL", cfg.AMQPURL)
+	}
+	if cfg.AMQPPublishers != 2 {
+		t.Errorf("AMQPPublishers = %d, want 2", cfg.AMQPPublishers)
+	}
+	if cfg.AMQPWriteTimeout != 2*time.Second {
+		t.Errorf("AMQPWriteTimeout = %s, want 2s", cfg.AMQPWriteTimeout)
+	}
+	if cfg.AMQPConfirmTimeout != 3*time.Second {
+		t.Errorf("AMQPConfirmTimeout = %s, want 3s", cfg.AMQPConfirmTimeout)
+	}
+	if cfg.AMQPPublishMaxAttempts != 4 {
+		t.Errorf("AMQPPublishMaxAttempts = %d, want 4", cfg.AMQPPublishMaxAttempts)
+	}
+	if cfg.AMQPPublishInitialBackoff != 25*time.Millisecond {
+		t.Errorf("AMQPPublishInitialBackoff = %s, want 25ms", cfg.AMQPPublishInitialBackoff)
+	}
+	if cfg.AMQPPublishMaxBackoff != 250*time.Millisecond {
+		t.Errorf("AMQPPublishMaxBackoff = %s, want 250ms", cfg.AMQPPublishMaxBackoff)
 	}
 }
 
@@ -77,6 +107,7 @@ func TestLoadDotEnvAndPreservesExistingEnvironment(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidDuration(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "sim")
 	t.Setenv("SHUTDOWN_TIMEOUT", "later")
 
 	if _, err := Load("api"); err == nil {
@@ -86,16 +117,70 @@ func TestLoadRejectsInvalidDuration(t *testing.T) {
 
 func TestValidateRejectsInvalidLogLevel(t *testing.T) {
 	cfg := Config{
-		ServiceName:     "api",
-		InstanceID:      "local",
-		HTTPAddr:        ":8080",
-		AdminAddr:       ":8081",
-		ShutdownTimeout: time.Second,
-		LogLevel:        "verbose",
+		ServiceName:               "api",
+		InstanceID:                "local",
+		HTTPAddr:                  ":8080",
+		AdminAddr:                 ":8081",
+		ShutdownTimeout:           time.Second,
+		LogLevel:                  "verbose",
+		AMQPURL:                   "amqp://metrics:metrics@localhost:5672/",
+		AMQPPublishers:            1,
+		AMQPWriteTimeout:          time.Second,
+		AMQPConfirmTimeout:        time.Second,
+		AMQPPublishMaxAttempts:    3,
+		AMQPPublishInitialBackoff: time.Millisecond,
+		AMQPPublishMaxBackoff:     time.Second,
 	}
 
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("Validate() error = nil, want invalid log level error")
+	}
+}
+
+func TestExampleEnvironmentLoadsForAPI(t *testing.T) {
+	values, err := godotenv.Read(filepath.Join("..", "..", ".env.example"))
+	if err != nil {
+		t.Fatalf("Read(.env.example) error = %v", err)
+	}
+	for name, value := range values {
+		t.Setenv(name, value)
+	}
+	t.Setenv("SERVICE_NAME", "api")
+
+	cfg, err := Load("api")
+	if err != nil {
+		t.Fatalf("Load() with .env.example error = %v", err)
+	}
+	if cfg.AMQPURL != "amqp://metrics:metrics@localhost:5672/" {
+		t.Fatalf("AMQPURL = %q, want local RabbitMQ URL", cfg.AMQPURL)
+	}
+}
+
+func TestLoadRejectsMissingAMQPURLForAPI(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "api")
+	t.Setenv("INSTANCE_ID", "local")
+	t.Setenv("HTTP_ADDR", ":8080")
+	t.Setenv("ADMIN_ADDR", ":8081")
+	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
+	t.Setenv("LOG_LEVEL", "info")
+	unsetEnv(t, "AMQP_URL")
+
+	if _, err := Load("api"); err == nil {
+		t.Fatal("Load() error = nil, want missing AMQP_URL error")
+	}
+}
+
+func TestLoadAllowsMissingAMQPURLForSimulator(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "sim")
+	t.Setenv("INSTANCE_ID", "local")
+	t.Setenv("HTTP_ADDR", ":8080")
+	t.Setenv("ADMIN_ADDR", ":8081")
+	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
+	t.Setenv("LOG_LEVEL", "info")
+	unsetEnv(t, "AMQP_URL")
+
+	if _, err := Load("sim"); err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
 	}
 }
 

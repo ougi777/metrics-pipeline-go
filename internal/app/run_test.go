@@ -52,4 +52,5 @@ func setValidEnvironment(t *testing.T) {
 	t.Setenv("ADMIN_ADDR", ":8081")
 	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
 	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("AMQP_URL", "amqp://metrics:metrics@localhost:5672/")
 }

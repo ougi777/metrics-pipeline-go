@@ -6,14 +6,14 @@
 
 ## Acceptance Criteria
 
-- [ ] 声明持久化业务 Exchange、Queue、绑定关系和 DLQ。
-- [ ] 发布持久化消息并启用 publisher confirms。
-- [ ] 每个发布 goroutine 独占 AMQP Channel。
-- [ ] 连接恢复后重新创建 Channel、声明拓扑并恢复 confirms。
-- [ ] API 在可靠发布确认后返回成功响应。
-- [ ] MQ 发布失败时执行有界重试，重试耗尽后返回 `503 MQ_UNAVAILABLE`。
-- [ ] API 接入链路仅向 RabbitMQ 提交指标数据。
-- [ ] 为发布确认、重试和错误映射编写测试。
+- [x] 声明持久化业务 Exchange、Queue、绑定关系和 DLQ。
+- [x] 发布持久化消息并启用 publisher confirms。
+- [x] 每个发布 goroutine 独占 AMQP Channel。
+- [x] 连接恢复后重新创建 Channel、声明拓扑并恢复 confirms。
+- [x] API 在可靠发布确认后返回成功响应。
+- [x] MQ 发布失败时执行有界重试，重试耗尽后返回 `503 MQ_UNAVAILABLE`。
+- [x] API 接入链路仅向 RabbitMQ 提交指标数据。
+- [x] 为发布确认、重试和错误映射编写测试。
 
 ## Dependencies
 

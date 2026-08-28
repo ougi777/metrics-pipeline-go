@@ -16,6 +16,7 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("ADMIN_ADDR", ":8081")
 	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
 	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("DATABASE_URL", "postgres://metrics:metrics@localhost:5432/metrics")
 	t.Setenv("AMQP_URL", "amqp://metrics:metrics@localhost:5672/")
 	t.Setenv("AMQP_PUBLISHERS", "2")
 	t.Setenv("AMQP_WRITE_TIMEOUT", "2s")
@@ -37,6 +38,9 @@ func TestLoadFromEnvironment(t *testing.T) {
 	}
 	if cfg.AMQPURL != "amqp://metrics:metrics@localhost:5672/" {
 		t.Errorf("AMQPURL = %q, want configured URL", cfg.AMQPURL)
+	}
+	if cfg.DatabaseURL != "postgres://metrics:metrics@localhost:5432/metrics" {
+		t.Errorf("DatabaseURL = %q, want configured URL", cfg.DatabaseURL)
 	}
 	if cfg.AMQPPublishers != 2 {
 		t.Errorf("AMQPPublishers = %d, want 2", cfg.AMQPPublishers)
@@ -181,6 +185,21 @@ func TestLoadAllowsMissingAMQPURLForSimulator(t *testing.T) {
 
 	if _, err := Load("sim"); err != nil {
 		t.Fatalf("Load() error = %v, want nil", err)
+	}
+}
+
+func TestLoadRejectsMissingDatabaseURLForWorker(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "worker")
+	t.Setenv("INSTANCE_ID", "local")
+	t.Setenv("HTTP_ADDR", ":8090")
+	t.Setenv("ADMIN_ADDR", ":8091")
+	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
+	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("AMQP_URL", "amqp://metrics:metrics@localhost:5672/")
+	unsetEnv(t, "DATABASE_URL")
+
+	if _, err := Load("worker"); err == nil {
+		t.Fatal("Load() error = nil, want missing DATABASE_URL error")
 	}
 }
 

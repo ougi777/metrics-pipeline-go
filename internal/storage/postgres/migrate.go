@@ -104,22 +104,7 @@ func (m *Migrator) EnsureDailyPartitions(
 	pastDays int,
 	futureDays int,
 ) error {
-	if pastDays < 0 || futureDays < 0 || pastDays > 366 || futureDays > 366 {
-		return fmt.Errorf("partition day ranges must be between 0 and 366")
-	}
-
-	day := referenceDay.UTC().Format(time.DateOnly)
-	if _, err := m.connection.Exec(
-		ctx,
-		"SELECT ensure_metric_daily_partitions($1::date, $2::integer, $3::integer)",
-		day,
-		pastDays,
-		futureDays,
-	); err != nil {
-		return fmt.Errorf("ensure daily partitions: %w", err)
-	}
-
-	return nil
+	return ensureDailyPartitions(ctx, m.connection, referenceDay, pastDays, futureDays)
 }
 
 // DiscoverMigrations 读取、校验、计算摘要并排序 SQL 迁移文件。

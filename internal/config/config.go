@@ -27,6 +27,7 @@ type Config struct {
 	AdminAddr                 string
 	ShutdownTimeout           time.Duration
 	LogLevel                  string
+	DatabaseURL               string
 	AMQPURL                   string
 	AMQPPublishers            int
 	AMQPWriteTimeout          time.Duration
@@ -79,6 +80,7 @@ func Load(defaultServiceName string) (Config, error) {
 		AdminAddr:                 stringEnv("ADMIN_ADDR", ":8081"),
 		ShutdownTimeout:           shutdownTimeout,
 		LogLevel:                  strings.ToLower(stringEnv("LOG_LEVEL", "info")),
+		DatabaseURL:               stringEnv("DATABASE_URL", ""),
 		AMQPURL:                   stringEnv("AMQP_URL", ""),
 		AMQPPublishers:            amqpPublishers,
 		AMQPWriteTimeout:          amqpWriteTimeout,
@@ -114,6 +116,9 @@ func (c Config) Validate() error {
 	}
 	if requiresAMQP(c.ServiceName) && strings.TrimSpace(c.AMQPURL) == "" {
 		return fmt.Errorf("AMQP_URL must not be empty for %s", c.ServiceName)
+	}
+	if requiresDatabase(c.ServiceName) && strings.TrimSpace(c.DatabaseURL) == "" {
+		return fmt.Errorf("DATABASE_URL must not be empty for %s", c.ServiceName)
 	}
 	if c.AMQPPublishers <= 0 {
 		return fmt.Errorf("AMQP_PUBLISHERS must be greater than zero")
@@ -186,4 +191,8 @@ func requiresAMQP(serviceName string) bool {
 	default:
 		return false
 	}
+}
+
+func requiresDatabase(serviceName string) bool {
+	return serviceName == "worker"
 }

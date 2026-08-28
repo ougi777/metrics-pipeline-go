@@ -60,6 +60,12 @@ func TestLoadFromEnvironment(t *testing.T) {
 	if cfg.AMQPPublishMaxBackoff != 250*time.Millisecond {
 		t.Errorf("AMQPPublishMaxBackoff = %s, want 250ms", cfg.AMQPPublishMaxBackoff)
 	}
+	if cfg.RetentionWindow != 168*time.Hour {
+		t.Errorf("RetentionWindow = %s, want 168h", cfg.RetentionWindow)
+	}
+	if cfg.PartitionMaintenanceInterval != time.Hour {
+		t.Errorf("PartitionMaintenanceInterval = %s, want 1h", cfg.PartitionMaintenanceInterval)
+	}
 }
 
 func TestLoadDotEnvAndPreservesExistingEnvironment(t *testing.T) {
@@ -119,21 +125,32 @@ func TestLoadRejectsInvalidDuration(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsRetentionWindowOutsideSevenDays(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "sim")
+	t.Setenv("RETENTION_WINDOW", "24h")
+
+	if _, err := Load("sim"); err == nil {
+		t.Fatal("Load() error = nil, want invalid retention window error")
+	}
+}
+
 func TestValidateRejectsInvalidLogLevel(t *testing.T) {
 	cfg := Config{
-		ServiceName:               "api",
-		InstanceID:                "local",
-		HTTPAddr:                  ":8080",
-		AdminAddr:                 ":8081",
-		ShutdownTimeout:           time.Second,
-		LogLevel:                  "verbose",
-		AMQPURL:                   "amqp://metrics:metrics@localhost:5672/",
-		AMQPPublishers:            1,
-		AMQPWriteTimeout:          time.Second,
-		AMQPConfirmTimeout:        time.Second,
-		AMQPPublishMaxAttempts:    3,
-		AMQPPublishInitialBackoff: time.Millisecond,
-		AMQPPublishMaxBackoff:     time.Second,
+		ServiceName:                  "api",
+		InstanceID:                   "local",
+		HTTPAddr:                     ":8080",
+		AdminAddr:                    ":8081",
+		ShutdownTimeout:              time.Second,
+		LogLevel:                     "verbose",
+		AMQPURL:                      "amqp://metrics:metrics@localhost:5672/",
+		AMQPPublishers:               1,
+		AMQPWriteTimeout:             time.Second,
+		AMQPConfirmTimeout:           time.Second,
+		AMQPPublishMaxAttempts:       3,
+		AMQPPublishInitialBackoff:    time.Millisecond,
+		AMQPPublishMaxBackoff:        time.Second,
+		RetentionWindow:              168 * time.Hour,
+		PartitionMaintenanceInterval: time.Hour,
 	}
 
 	if err := cfg.Validate(); err == nil {

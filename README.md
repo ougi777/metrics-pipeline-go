@@ -91,3 +91,5 @@ docker compose run --rm migrate
 ```powershell
 go run ./cmd/migrate
 ```
+
+worker 每小时预建日分区并维护严格的 168 小时窗口：完整过期分区通过 `DROP TABLE` 删除，截止日内的过期指标和事件以批次删除；已发布的过期 Outbox 同步清理，待发布 Outbox 与任务事件序号持续保留。维护日志记录 cutoff、分区数、删除行数和耗时。

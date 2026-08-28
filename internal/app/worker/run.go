@@ -38,7 +38,6 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		logger.Error("postgres partition initialization failed", slog.Any("error", err))
 		return 1
 	}
-
 	store, err := postgres.NewMetricPointStore(pool)
 	if err != nil {
 		logger.Error("metric point store initialization failed", slog.Any("error", err))
@@ -55,7 +54,14 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.Go(func() error {
-		return postgres.RunDailyPartitionMaintenance(groupCtx, pool, logger)
+		return postgres.RunPartitionMaintenance(
+			groupCtx,
+			pool,
+			logger,
+			cfg.RetentionWindow,
+			cfg.PartitionMaintenanceInterval,
+			10000,
+		)
 	})
 	group.Go(func() error {
 		logger.Info("worker consumer starting")

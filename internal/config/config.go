@@ -18,23 +18,27 @@ const defaultAMQPConfirmTimeout = 5 * time.Second
 const defaultAMQPPublishMaxAttempts = 3
 const defaultAMQPPublishInitialBackoff = 100 * time.Millisecond
 const defaultAMQPPublishMaxBackoff = time.Second
+const defaultRetentionWindow = 168 * time.Hour
+const defaultPartitionMaintenanceInterval = time.Hour
 
 // Config 包含所有进程共享的运行时配置。
 type Config struct {
-	ServiceName               string
-	InstanceID                string
-	HTTPAddr                  string
-	AdminAddr                 string
-	ShutdownTimeout           time.Duration
-	LogLevel                  string
-	DatabaseURL               string
-	AMQPURL                   string
-	AMQPPublishers            int
-	AMQPWriteTimeout          time.Duration
-	AMQPConfirmTimeout        time.Duration
-	AMQPPublishMaxAttempts    int
-	AMQPPublishInitialBackoff time.Duration
-	AMQPPublishMaxBackoff     time.Duration
+	ServiceName                  string
+	InstanceID                   string
+	HTTPAddr                     string
+	AdminAddr                    string
+	ShutdownTimeout              time.Duration
+	LogLevel                     string
+	DatabaseURL                  string
+	AMQPURL                      string
+	AMQPPublishers               int
+	AMQPWriteTimeout             time.Duration
+	AMQPConfirmTimeout           time.Duration
+	AMQPPublishMaxAttempts       int
+	AMQPPublishInitialBackoff    time.Duration
+	AMQPPublishMaxBackoff        time.Duration
+	RetentionWindow              time.Duration
+	PartitionMaintenanceInterval time.Duration
 }
 
 // Load 先读取可选的本地 .env 文件，再从环境变量解析配置。
@@ -64,6 +68,14 @@ func Load(defaultServiceName string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	retentionWindow, err := durationEnv("RETENTION_WINDOW", defaultRetentionWindow)
+	if err != nil {
+		return Config{}, err
+	}
+	partitionMaintenanceInterval, err := durationEnv("PARTITION_MAINTENANCE_INTERVAL", defaultPartitionMaintenanceInterval)
+	if err != nil {
+		return Config{}, err
+	}
 	amqpPublishers, err := intEnv("AMQP_PUBLISHERS", defaultAMQPPublishers)
 	if err != nil {
 		return Config{}, err
@@ -74,20 +86,22 @@ func Load(defaultServiceName string) (Config, error) {
 	}
 
 	cfg := Config{
-		ServiceName:               stringEnv("SERVICE_NAME", defaultServiceName),
-		InstanceID:                stringEnv("INSTANCE_ID", "local"),
-		HTTPAddr:                  stringEnv("HTTP_ADDR", ":8080"),
-		AdminAddr:                 stringEnv("ADMIN_ADDR", ":8081"),
-		ShutdownTimeout:           shutdownTimeout,
-		LogLevel:                  strings.ToLower(stringEnv("LOG_LEVEL", "info")),
-		DatabaseURL:               stringEnv("DATABASE_URL", ""),
-		AMQPURL:                   stringEnv("AMQP_URL", ""),
-		AMQPPublishers:            amqpPublishers,
-		AMQPWriteTimeout:          amqpWriteTimeout,
-		AMQPConfirmTimeout:        amqpConfirmTimeout,
-		AMQPPublishMaxAttempts:    amqpPublishMaxAttempts,
-		AMQPPublishInitialBackoff: amqpPublishInitialBackoff,
-		AMQPPublishMaxBackoff:     amqpPublishMaxBackoff,
+		ServiceName:                  stringEnv("SERVICE_NAME", defaultServiceName),
+		InstanceID:                   stringEnv("INSTANCE_ID", "local"),
+		HTTPAddr:                     stringEnv("HTTP_ADDR", ":8080"),
+		AdminAddr:                    stringEnv("ADMIN_ADDR", ":8081"),
+		ShutdownTimeout:              shutdownTimeout,
+		LogLevel:                     strings.ToLower(stringEnv("LOG_LEVEL", "info")),
+		DatabaseURL:                  stringEnv("DATABASE_URL", ""),
+		AMQPURL:                      stringEnv("AMQP_URL", ""),
+		AMQPPublishers:               amqpPublishers,
+		AMQPWriteTimeout:             amqpWriteTimeout,
+		AMQPConfirmTimeout:           amqpConfirmTimeout,
+		AMQPPublishMaxAttempts:       amqpPublishMaxAttempts,
+		AMQPPublishInitialBackoff:    amqpPublishInitialBackoff,
+		AMQPPublishMaxBackoff:        amqpPublishMaxBackoff,
+		RetentionWindow:              retentionWindow,
+		PartitionMaintenanceInterval: partitionMaintenanceInterval,
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -137,6 +151,12 @@ func (c Config) Validate() error {
 	}
 	if c.AMQPPublishMaxBackoff < c.AMQPPublishInitialBackoff {
 		return fmt.Errorf("AMQP_PUBLISH_MAX_BACKOFF must be greater than or equal to AMQP_PUBLISH_INITIAL_BACKOFF")
+	}
+	if c.RetentionWindow != defaultRetentionWindow {
+		return fmt.Errorf("RETENTION_WINDOW must equal %s", defaultRetentionWindow)
+	}
+	if c.PartitionMaintenanceInterval <= 0 {
+		return fmt.Errorf("PARTITION_MAINTENANCE_INTERVAL must be greater than zero")
 	}
 
 	switch c.LogLevel {

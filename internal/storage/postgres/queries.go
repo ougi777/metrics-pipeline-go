@@ -13,3 +13,6 @@ var ensureDailyPartitionsSQL string
 
 //go:embed sql/ensure_metric_point_partition.sql
 var ensureMetricPointPartitionSQL string
+
+//go:embed sql/maintain_metric_retention.sql
+var maintainMetricRetentionSQL string

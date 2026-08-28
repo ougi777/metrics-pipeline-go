@@ -126,6 +126,60 @@ func TestEnsureDailyPartitionsAllowsFutureFlush(t *testing.T) {
 	assertTableCount(t, pool, "metric_points", 1)
 }
 
+func TestMaintainRetentionDropsWholePartitionsAndCleansBoundaryData(t *testing.T) {
+	pool, _ := newMetricStoreIntegrationDatabase(t)
+	ctx := context.Background()
+	cutoff := time.Now().UTC().Truncate(time.Second).Add(-48 * time.Hour)
+	if _, err := pool.Exec(ctx, "SELECT ensure_metric_daily_partitions($1::date, 2, 1)", cutoff); err != nil {
+		t.Fatalf("create retention test partitions: %v", err)
+	}
+
+	old := cutoff.Add(-24 * time.Hour)
+	boundaryExpired := cutoff.Add(-time.Hour)
+	retained := cutoff
+	insertRetentionData(t, pool, old, "old", true)
+	insertRetentionData(t, pool, boundaryExpired, "boundary-expired", true)
+	insertRetentionData(t, pool, retained, "retained", true)
+	insertRetentionData(t, pool, old.Add(time.Minute), "pending-outbox", false)
+
+	first, err := MaintainRetention(ctx, pool, cutoff, 1)
+	if err != nil {
+		t.Fatalf("first MaintainRetention() error = %v", err)
+	}
+	if first.PointPartitionsDropped < 1 || first.EventPartitionsDropped < 1 {
+		t.Fatalf("first MaintainRetention() result = %#v, want dropped old partitions", first)
+	}
+	if first.MetricPointsDeleted != 1 || first.MetricEventsDeleted != 1 || first.MetricOutboxDeleted != 1 {
+		t.Fatalf("first MaintainRetention() result = %#v, want one boundary deletion per table", first)
+	}
+
+	second, err := MaintainRetention(ctx, pool, cutoff, 1)
+	if err != nil {
+		t.Fatalf("second MaintainRetention() error = %v", err)
+	}
+	if second.MetricOutboxDeleted != 1 {
+		t.Fatalf("second MaintainRetention() result = %#v, want remaining published Outbox deletion", second)
+	}
+	third, err := MaintainRetention(ctx, pool, cutoff, 1)
+	if err != nil {
+		t.Fatalf("third MaintainRetention() error = %v", err)
+	}
+	if third != (RetentionResult{}) {
+		t.Fatalf("third MaintainRetention() result = %#v, want no-op", third)
+	}
+	assertTableCount(t, pool, "metric_points", 1)
+	assertTableCount(t, pool, "metric_events", 1)
+	assertTableCount(t, pool, "metric_outbox", 2)
+
+	var counter int64
+	if err := pool.QueryRow(ctx, "SELECT last_event_seq FROM task_event_counters WHERE task_id = 'retained'").Scan(&counter); err != nil {
+		t.Fatalf("read retained task event counter: %v", err)
+	}
+	if counter != 1 {
+		t.Fatalf("retained task event counter = %d, want 1", counter)
+	}
+}
+
 func TestMetricPointStoreRollsBackAllTablesOnFailure(t *testing.T) {
 	pool, store := newMetricStoreIntegrationDatabase(t)
 	ctx := context.Background()
@@ -348,6 +402,13 @@ func newMetricStoreIntegrationDatabase(t *testing.T) (*pgxpool.Pool, *MetricPoin
 	if _, err := pool.Exec(ctx, string(migrationSQL)); err != nil {
 		t.Fatalf("apply initial migration: %v", err)
 	}
+	retentionMigrationSQL, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", "000002_retention_maintenance.sql"))
+	if err != nil {
+		t.Fatalf("read retention migration: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(retentionMigrationSQL)); err != nil {
+		t.Fatalf("apply retention migration: %v", err)
+	}
 	if _, err := pool.Exec(ctx, "SELECT ensure_metric_daily_partitions(current_date, 1, 1)"); err != nil {
 		t.Fatalf("create integration partitions: %v", err)
 	}
@@ -357,6 +418,35 @@ func newMetricStoreIntegrationDatabase(t *testing.T) (*pgxpool.Pool, *MetricPoin
 		t.Fatalf("NewMetricPointStore() error = %v", err)
 	}
 	return pool, store
+}
+
+func insertRetentionData(t *testing.T, pool *pgxpool.Pool, createdAt time.Time, taskID string, published bool) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `
+INSERT INTO metric_points (task_id, key, step, ts, value)
+VALUES ($1, 'loss', 1, $2, 1.2)
+`, taskID, createdAt); err != nil {
+		t.Fatalf("insert metric point %q: %v", taskID, err)
+	}
+	if _, err := pool.Exec(ctx, `
+INSERT INTO task_event_counters (task_id, last_event_seq)
+VALUES ($1, 1)
+`, taskID); err != nil {
+		t.Fatalf("insert event counter %q: %v", taskID, err)
+	}
+	if _, err := pool.Exec(ctx, `
+INSERT INTO metric_events (created_at, task_id, event_seq, payload)
+VALUES ($1, $2, 1, '{"points":[]}')
+`, createdAt, taskID); err != nil {
+		t.Fatalf("insert metric event %q: %v", taskID, err)
+	}
+	if _, err := pool.Exec(ctx, `
+INSERT INTO metric_outbox (task_id, event_seq, payload, created_at, published_at)
+VALUES ($1, 1, '{"points":[]}', $2::timestamptz, CASE WHEN $3::boolean THEN $2::timestamptz ELSE NULL END)
+`, taskID, createdAt, published); err != nil {
+		t.Fatalf("insert metric outbox %q: %v", taskID, err)
+	}
 }
 
 func assertTableCount(t *testing.T, pool *pgxpool.Pool, table string, want int) {

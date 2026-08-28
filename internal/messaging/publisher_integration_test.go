@@ -17,8 +17,137 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+func TestRabbitMQConsumerAcksAfterRealBrokerFlush(t *testing.T) {
+	url := integrationAMQPURL()
+	topology := integrationTopology(t)
+	defer cleanupIntegrationTopology(t, url, topology)
+
+	flushed := make(chan []domain.MetricPoint, 1)
+	consumer, err := NewRabbitMQMetricConsumer(ConsumerConfig{
+		URL:             url,
+		Topology:        topology,
+		FlushInterval:   20 * time.Millisecond,
+		ShutdownTimeout: time.Second,
+	}, MetricPointSinkFunc(func(_ context.Context, points []domain.MetricPoint) error {
+		flushed <- append([]domain.MetricPoint(nil), points...)
+		return nil
+	}), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatalf("NewRabbitMQMetricConsumer() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- consumer.Run(ctx) }()
+	publisher := newIntegrationPublisher(t, PublisherConfig{
+		URL:            url,
+		Publishers:     1,
+		WriteTimeout:   time.Second,
+		ConfirmTimeout: 5 * time.Second,
+		MaxAttempts:    1,
+		InitialBackoff: time.Millisecond,
+		MaxBackoff:     time.Millisecond,
+		Topology:       topology,
+	})
+	defer closeTestPublisher(t, publisher)
+
+	if err := publisher.PublishMetricBatch(context.Background(), sampleMetricBatch()); err != nil {
+		t.Fatalf("PublishMetricBatch() error = %v", err)
+	}
+	select {
+	case points := <-flushed:
+		if len(points) != 2 {
+			t.Fatalf("flushed points = %d, want 2", len(points))
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for real broker flush")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("consumer.Run() error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("consumer did not stop")
+	}
+
+	queue := inspectIntegrationQueue(t, url, topology.IngestQueue)
+	if queue.Messages != 0 {
+		t.Fatalf("ready messages after ack = %d, want 0", queue.Messages)
+	}
+}
+
+func TestRabbitMQConsumerDeadLettersMalformedJSONWithRealBroker(t *testing.T) {
+	url := integrationAMQPURL()
+	topology := integrationTopology(t)
+	defer cleanupIntegrationTopology(t, url, topology)
+
+	consumer, err := NewRabbitMQMetricConsumer(ConsumerConfig{
+		URL:      url,
+		Topology: topology,
+	}, MetricPointSinkFunc(func(context.Context, []domain.MetricPoint) error {
+		return errors.New("sink must not receive malformed JSON")
+	}), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatalf("NewRabbitMQMetricConsumer() error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- consumer.Run(ctx) }()
+
+	connection, channel := openIntegrationControlChannel(t, url)
+	defer func() {
+		_ = channel.Close()
+		_ = connection.Close()
+	}()
+	if err := declareTopology(realAMQPSession{connection: connection, channel: channel}, topology); err != nil {
+		t.Fatalf("declareTopology() error = %v", err)
+	}
+	malformed := []byte(`{"schema_version":1`)
+	if err := channel.PublishWithContext(context.Background(), topology.IngestExchange, topology.IngestRoutingKey, false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		DeliveryMode: amqp.Persistent,
+		MessageId:    "malformed-message",
+		Body:         malformed,
+	}); err != nil {
+		t.Fatalf("PublishWithContext() error = %v", err)
+	}
+
+	var deadLetter amqp.Delivery
+	found := false
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		deadLetter, found, err = channel.Get(topology.DeadLetterQueue, true)
+		if err != nil {
+			t.Fatalf("Get(DLQ) error = %v", err)
+		}
+		if found {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !found {
+		t.Fatal("malformed message did not reach DLQ")
+	}
+	if string(deadLetter.Body) != string(malformed) {
+		t.Fatalf("DLQ body = %q, want %q", deadLetter.Body, malformed)
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("consumer.Run() error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("consumer did not stop")
+	}
+}
 
 func TestRabbitMQPublisherReturnsUnroutableFromRealBroker(t *testing.T) {
 	url := integrationAMQPURL()
@@ -201,6 +330,34 @@ func deleteIntegrationQueue(t *testing.T, url string, queue string) {
 	if _, err := channel.QueueDelete(queue, false, false, false); err != nil {
 		t.Fatalf("QueueDelete(%s) error = %v", queue, err)
 	}
+}
+
+func inspectIntegrationQueue(t *testing.T, url string, queue string) amqp.Queue {
+	t.Helper()
+	connection, channel := openIntegrationControlChannel(t, url)
+	defer func() {
+		_ = channel.Close()
+		_ = connection.Close()
+	}()
+	result, err := channel.QueueInspect(queue)
+	if err != nil {
+		t.Fatalf("QueueInspect(%s) error = %v", queue, err)
+	}
+	return result
+}
+
+func openIntegrationControlChannel(t *testing.T, url string) (*amqp.Connection, *amqp.Channel) {
+	t.Helper()
+	connection, err := amqp.Dial(url)
+	if err != nil {
+		t.Fatalf("Dial(control connection) error = %v", err)
+	}
+	channel, err := connection.Channel()
+	if err != nil {
+		_ = connection.Close()
+		t.Fatalf("Channel(control connection) error = %v", err)
+	}
+	return connection, channel
 }
 
 func cleanupIntegrationTopology(t *testing.T, url string, topology Topology) {

@@ -9,6 +9,7 @@ import (
 
 	baseapp "github.com/ougi777/metrics-pipeline-go/internal/app"
 	"github.com/ougi777/metrics-pipeline-go/internal/config"
+	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	ingestservice "github.com/ougi777/metrics-pipeline-go/internal/service/ingest"
@@ -32,18 +33,42 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		logger.Info("service stopped", slog.Any("reason", ctx.Err()))
 		return 0
 	}
+
+	//创建pg连接池
 	database, err := postgres.OpenPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("postgres initialization failed", slog.Any("error", err))
 		return 1
 	}
 	defer database.Close()
+
+	//创建Metricpoint表持久层dao对象
 	store, err := postgres.NewMetricPointStore(database)
 	if err != nil {
 		logger.Error("metric point store initialization failed", slog.Any("error", err))
 		return 1
 	}
 
+	//每个api实例内的广播接收器
+	eventBridge, err := messaging.NewRabbitMQMetricEventBridge(messaging.EventBridgeConfig{
+		URL:        cfg.AMQPURL,
+		InstanceID: runtimeInstanceID(cfg),
+	}, messaging.EventSinkFunc(func(ctx context.Context, event domain.RealtimeEvent) error {
+		logger.DebugContext(ctx, "realtime metric event received", slog.String("task_id", event.TaskID), slog.Int64("event_seq", event.EventSeq))
+		return nil
+	}), logger)
+	if err != nil {
+		logger.Error("realtime event bridge initialization failed", slog.Any("error", err))
+		return 1
+	}
+
+	go func() {
+		if err := eventBridge.Run(ctx); err != nil {
+			logger.Error("realtime event bridge stopped", slog.Any("error", err))
+		}
+	}()
+
+	//指标发布到mq
 	metricPublisher, err := messaging.NewRabbitMQMetricBatchPublisher(ctx, messaging.PublisherConfig{
 		URL:            cfg.AMQPURL,
 		Publishers:     cfg.AMQPPublishers,
@@ -64,6 +89,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 	}()
 
 	ingestService := ingestservice.NewService(metricPublisher)
+	// 注册路由
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httptransport.NewRouter(httptransport.RouterOptions{
@@ -104,4 +130,11 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		}
 		return 0
 	}
+}
+
+func runtimeInstanceID(cfg config.Config) string {
+	if cfg.InstanceID != "" {
+		return cfg.InstanceID
+	}
+	return "api"
 }

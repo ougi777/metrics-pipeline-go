@@ -16,6 +16,8 @@ const (
 	DeadLetterExchange   = "metrics.dlx"
 	DeadLetterQueue      = "metrics.ingest.dlq"
 	DeadLetterRoutingKey = "metrics.ingest.dlq"
+	RealtimeExchange     = "metrics.realtime"
+	RealtimeExchangeKind = "fanout"
 )
 
 type Topology struct {
@@ -26,6 +28,8 @@ type Topology struct {
 	DeadLetterExchange   string
 	DeadLetterQueue      string
 	DeadLetterRoutingKey string
+	RealtimeExchange     string
+	RealtimeExchangeKind string
 }
 
 func DefaultTopology() Topology {
@@ -37,7 +41,16 @@ func DefaultTopology() Topology {
 		DeadLetterExchange:   DeadLetterExchange,
 		DeadLetterQueue:      DeadLetterQueue,
 		DeadLetterRoutingKey: DeadLetterRoutingKey,
+		RealtimeExchange:     RealtimeExchange,
+		RealtimeExchangeKind: RealtimeExchangeKind,
 	}
+}
+
+func declareRealtimeTopology(session topologySession, topology Topology) error {
+	if topology == (Topology{}) {
+		topology = DefaultTopology()
+	}
+	return session.ExchangeDeclare(topology.RealtimeExchange, topology.RealtimeExchangeKind, true, false, false, false, nil)
 }
 
 func declareTopology(session topologySession, topology Topology) error {

@@ -22,3 +22,15 @@ var queryMetricHistorySQL string
 
 //go:embed sql/query_metric_summary.sql
 var queryMetricSummarySQL string
+
+//go:embed sql/claim_metric_outbox.sql
+var claimMetricOutboxSQL string
+
+//go:embed sql/mark_metric_outbox_published.sql
+var markMetricOutboxPublishedSQL string
+
+//go:embed sql/mark_metric_outbox_failed.sql
+var markMetricOutboxFailedSQL string
+
+//go:embed sql/release_metric_outbox_claim.sql
+var releaseMetricOutboxClaimSQL string

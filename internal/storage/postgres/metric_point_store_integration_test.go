@@ -98,6 +98,80 @@ func TestMetricPointStoreQueriesTaskSummary(t *testing.T) {
 	}
 }
 
+func TestOutboxStoreClaimsAndCompletesEvent(t *testing.T) {
+	pool, _ := newMetricStoreIntegrationDatabase(t)
+	store, err := NewOutboxStore(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO metric_outbox (task_id, event_seq, payload) VALUES ('relay-task', 1, '{"points":[]}')`); err != nil {
+		t.Fatalf("insert outbox event: %v", err)
+	}
+	events, token, err := store.Claim(ctx, 100, time.Second)
+	if err != nil {
+		t.Fatalf("Claim() error = %v", err)
+	}
+	if len(events) != 1 || token == "" || events[0].ClaimToken != token || events[0].TaskID != "relay-task" || events[0].EventSeq != 1 {
+		t.Fatalf("claimed events = %#v, token = %q", events, token)
+	}
+	if err := store.MarkFailed(ctx, events[0], time.Second); err != nil {
+		t.Fatalf("MarkFailed() error = %v", err)
+	}
+	var attempt int
+	if err := pool.QueryRow(ctx, "SELECT attempt_count FROM metric_outbox WHERE task_id = 'relay-task'").Scan(&attempt); err != nil {
+		t.Fatal(err)
+	}
+	if attempt != 1 {
+		t.Fatalf("attempt_count = %d, want 1", attempt)
+	}
+	events, _, err = store.Claim(ctx, 1, time.Second)
+	if err != nil {
+		t.Fatalf("second Claim() error = %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("claimed event before retry time = %#v", events)
+	}
+	time.Sleep(1100 * time.Millisecond)
+	events, _, err = store.Claim(ctx, 1, time.Second)
+	if err != nil || len(events) != 1 {
+		t.Fatalf("retry Claim() = events:%#v err:%v", events, err)
+	}
+	if err := store.MarkPublished(ctx, events[0]); err != nil {
+		t.Fatalf("MarkPublished() error = %v", err)
+	}
+	var published bool
+	if err := pool.QueryRow(ctx, "SELECT published_at IS NOT NULL FROM metric_outbox WHERE task_id = 'relay-task'").Scan(&published); err != nil {
+		t.Fatal(err)
+	}
+	if !published {
+		t.Fatal("published_at was not set")
+	}
+}
+
+func TestOutboxStoreReleasesClaim(t *testing.T) {
+	pool, _ := newMetricStoreIntegrationDatabase(t)
+	store, err := NewOutboxStore(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO metric_outbox (task_id, event_seq, payload) VALUES ('release-task', 1, '{"points":[]}')`); err != nil {
+		t.Fatalf("insert outbox event: %v", err)
+	}
+	events, _, err := store.Claim(ctx, 1, time.Hour)
+	if err != nil || len(events) != 1 {
+		t.Fatalf("Claim() = events:%#v err:%v", events, err)
+	}
+	if err := store.ReleaseClaim(ctx, events[0]); err != nil {
+		t.Fatalf("ReleaseClaim() error = %v", err)
+	}
+	events, _, err = store.Claim(ctx, 1, time.Hour)
+	if err != nil || len(events) != 1 {
+		t.Fatalf("Claim() after release = events:%#v err:%v", events, err)
+	}
+}
+
 func ptrInt64(value int64) *int64 { return &value }
 
 func TestMetricPointStorePersistsAndDeduplicatesFlush(t *testing.T) {

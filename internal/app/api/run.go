@@ -12,6 +12,7 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	ingestservice "github.com/ougi777/metrics-pipeline-go/internal/service/ingest"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/summary"
 	"github.com/ougi777/metrics-pipeline-go/internal/storage/postgres"
 	httptransport "github.com/ougi777/metrics-pipeline-go/internal/transport/http"
 )
@@ -68,6 +69,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		Handler: httptransport.NewRouter(httptransport.RouterOptions{
 			IngestService:  ingestService,
 			HistoryService: history.NewService(store),
+			SummaryService: summary.NewService(store),
 		}),
 	}
 	errCh := make(chan error, 1)

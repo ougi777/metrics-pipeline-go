@@ -19,6 +19,7 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/summary"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -54,6 +55,46 @@ func TestMetricPointStoreQueriesAndDownsamplesHistory(t *testing.T) {
 	}
 	if len(filtered.Points) != 1 || filtered.Points[0].Key != "lr" || filtered.Downsampled {
 		t.Fatalf("filtered result = %#v", filtered)
+	}
+}
+
+func TestMetricPointStoreQueriesTaskSummary(t *testing.T) {
+	_, store := newMetricStoreIntegrationDatabase(t)
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	points := []domain.MetricPoint{
+		{TaskID: "summary-task", Key: "loss", Step: 1, TimestampMillis: now.Add(-3 * time.Second).UnixMilli(), Value: 3},
+		{TaskID: "summary-task", Key: "loss", Step: 2, TimestampMillis: now.Add(-2 * time.Second).UnixMilli(), Value: 2},
+		{TaskID: "summary-task", Key: "loss", Step: 2, TimestampMillis: now.Add(-time.Second).UnixMilli(), Value: 1},
+		{TaskID: "summary-task", Key: "lr", Step: 4, TimestampMillis: now.UnixMilli(), Value: 0.5},
+	}
+	if err := store.Flush(context.Background(), points); err != nil {
+		t.Fatalf("Flush() error = %v", err)
+	}
+
+	started := time.Now()
+	result, err := store.QuerySummary(context.Background(), summary.Query{TaskID: "summary-task"})
+	t.Logf("summary query duration: %s", time.Since(started))
+	if err != nil {
+		t.Fatalf("QuerySummary() error = %v", err)
+	}
+	if !result.Exists || result.LastStep != 4 || result.UpdatedAt != now.UnixMilli() {
+		t.Fatalf("task metadata = %#v", result)
+	}
+	loss := result.Metrics["loss"]
+	if loss.Last != 1 || loss.Min != 1 || loss.Max != 3 || loss.Avg != 2 {
+		t.Fatalf("loss summary = %#v", loss)
+	}
+	lr := result.Metrics["lr"]
+	if lr.Last != 0.5 || lr.Min != 0.5 || lr.Max != 0.5 || lr.Avg != 0.5 {
+		t.Fatalf("lr summary = %#v", lr)
+	}
+
+	missing, err := store.QuerySummary(context.Background(), summary.Query{TaskID: "missing-summary-task"})
+	if err != nil {
+		t.Fatalf("missing QuerySummary() error = %v", err)
+	}
+	if missing.Exists || len(missing.Metrics) != 0 {
+		t.Fatalf("missing summary = %#v", missing)
 	}
 }
 

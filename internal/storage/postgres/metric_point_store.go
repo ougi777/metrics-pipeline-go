@@ -12,11 +12,48 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/summary"
 )
 
 // MetricPointStore 使用一个 PostgreSQL 事务持久化一次 worker flush。
 type MetricPointStore struct {
 	pool *pgxpool.Pool
+}
+
+// QuerySummary aggregates the retained metric points for one task in PostgreSQL.
+func (s *MetricPointStore) QuerySummary(ctx context.Context, query summary.Query) (summary.Result, error) {
+	cutoff := time.Now().UTC().Add(-168 * time.Hour)
+	rows, err := s.pool.Query(ctx, queryMetricSummarySQL, query.TaskID, cutoff)
+	if err != nil {
+		return summary.Result{}, fmt.Errorf("query metric summary: %w", err)
+	}
+	defer rows.Close()
+
+	result := summary.Result{Metrics: make(map[string]summary.Metric)}
+	for rows.Next() {
+		var exists bool
+		var lastStep *int32
+		var updatedAt *time.Time
+		var key *string
+		var last, min, max, avg *float64
+		if err := rows.Scan(&exists, &lastStep, &updatedAt, &key, &last, &min, &max, &avg); err != nil {
+			return summary.Result{}, fmt.Errorf("scan metric summary: %w", err)
+		}
+		result.Exists = exists
+		if lastStep != nil {
+			result.LastStep = *lastStep
+		}
+		if updatedAt != nil {
+			result.UpdatedAt = updatedAt.UnixMilli()
+		}
+		if key != nil {
+			result.Metrics[*key] = summary.Metric{Last: *last, Min: *min, Max: *max, Avg: *avg}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return summary.Result{}, fmt.Errorf("read metric summary: %w", err)
+	}
+	return result, nil
 }
 
 // QueryHistory applies all filters and performs bounded aggregation in PostgreSQL.

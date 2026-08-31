@@ -19,3 +19,6 @@ var maintainMetricRetentionSQL string
 
 //go:embed sql/query_metric_history.sql
 var queryMetricHistorySQL string
+
+//go:embed sql/query_metric_summary.sql
+var queryMetricSummarySQL string

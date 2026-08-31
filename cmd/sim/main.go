@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -26,12 +27,25 @@ func main() {
 	flag.BoolVar(&cfg.GPUMem, "gpu-mem", false, "enable gpu_mem")
 	flag.BoolVar(&cfg.Throughput, "throughput", false, "enable throughput in tokens/s")
 	flag.Int64Var(&cfg.Seed, "seed", 1, "random seed")
+	flag.Float64Var(&cfg.DuplicateRate, "duplicate-rate", 0, "probability of replaying a previous batch")
+	flag.Float64Var(&cfg.FailureRate, "failure-rate", 0, "probability of dropping a request before sending")
+	flag.BoolVar(&cfg.Audit, "audit", false, "audit tasks after simulation")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := simulator.Run(ctx, cfg); err != nil {
+	report, err := simulator.RunWithReport(ctx, cfg)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+	if cfg.Audit {
+		encoded, _ := json.MarshalIndent(report, "", "  ")
+		fmt.Println(string(encoded))
+		if !report.Pass {
+			os.Exit(2)
+		}
+	} else {
+		fmt.Printf("simulation completed: tasks=%d duration=%s rate=%.2f\n", cfg.Tasks, cfg.Duration, cfg.Rate)
 	}
 }

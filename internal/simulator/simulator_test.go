@@ -92,3 +92,38 @@ func TestConfigValidation(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 }
+
+func TestCompareAuditPassesExpectedValues(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/admin/tasks/sim-0001/audit" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"task_id":"sim-0001","point_count":4,"distinct_steps":2,"first_step":0,"last_step":1,"keys":["loss","lr"],"missing_steps":[]}`))
+	}))
+	defer server.Close()
+	result := AuditResult{TaskID: "sim-0001", Expected: Expected{TaskID: "sim-0001", PointCount: 4, DistinctSteps: 2, FirstStep: ptr(0), LastStep: ptr(1), Keys: []string{"loss", "lr"}}}
+	compareAudit(context.Background(), server.Client(), auditEndpoint(server.URL+"/api/v1/ingest/metrics"), &result)
+	if !result.Pass || len(result.Differences) != 0 {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+func ptr(value int64) *int64 { return &value }
+
+func TestExpectedStateDeduplicatesReplay(t *testing.T) {
+	cfg := Config{Rate: 1, EvalEvery: 10}
+	gen := NewGenerator("sim-0001", time.UnixMilli(1000), cfg, 1)
+	batch := gen.NextBatch(2)
+	state := newExpectedState(batch.TaskID)
+	fingerprint := batchFingerprint(batch)
+	for i := 0; i < 2; i++ {
+		if !state.batches[fingerprint] {
+			state.batches[fingerprint] = true
+			addExpected(&state, batch)
+		}
+	}
+	expected := state.finish()
+	if expected.BatchItems != 2 || expected.PointCount != 4 || expected.DistinctSteps != 2 {
+		t.Fatalf("expected = %+v", expected)
+	}
+}

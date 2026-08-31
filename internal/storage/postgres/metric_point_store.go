@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/audit"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/summary"
 	"github.com/ougi777/metrics-pipeline-go/internal/sse"
@@ -18,7 +20,38 @@ import (
 
 // MetricPointStore 使用一个 PostgreSQL 事务持久化一次 worker flush。
 type MetricPointStore struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *slog.Logger
+}
+
+func (s *MetricPointStore) QueryAudit(ctx context.Context, query audit.Query) (audit.Result, error) {
+	var result audit.Result
+	if err := s.pool.QueryRow(ctx, queryMetricAuditSQL, query.TaskID).Scan(
+		&result.Exists, &result.PointCount, &result.DistinctSteps, &result.FirstStep,
+		&result.LastStep, &result.Keys, &result.MissingSteps,
+	); err != nil {
+		return audit.Result{}, fmt.Errorf("query metric audit: %w", err)
+	}
+	if result.Exists {
+		rows, err := s.pool.Query(ctx, `SELECT key, step, array_agg(ts ORDER BY ts) FROM metric_points WHERE task_id = $1 GROUP BY key, step HAVING count(DISTINCT ts) > 1 ORDER BY key, step`, query.TaskID)
+		if err != nil {
+			return audit.Result{}, fmt.Errorf("query duplicate metric steps: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var key string
+			var step int32
+			var timestamps []time.Time
+			if err := rows.Scan(&key, &step, &timestamps); err != nil {
+				return audit.Result{}, fmt.Errorf("scan duplicate metric step: %w", err)
+			}
+			s.logger.Warn("metric audit found duplicate step", slog.String("task_id", query.TaskID), slog.String("key", key), slog.Int("step", int(step)), slog.Any("timestamps", timestamps))
+		}
+		if err := rows.Err(); err != nil {
+			return audit.Result{}, fmt.Errorf("read duplicate metric steps: %w", err)
+		}
+	}
+	return result, nil
 }
 
 func (s *MetricPointStore) QueryEvents(ctx context.Context, taskID string, after int64) ([]sse.Event, error) {
@@ -157,12 +190,16 @@ type metricPointColumns struct {
 	values     []float64
 }
 
-func NewMetricPointStore(pool *pgxpool.Pool) (*MetricPointStore, error) {
+func NewMetricPointStore(pool *pgxpool.Pool, loggers ...*slog.Logger) (*MetricPointStore, error) {
 	if pool == nil {
 		return nil, errors.New("postgres pool is required")
 	}
 
-	return &MetricPointStore{pool: pool}, nil
+	logger := slog.Default()
+	if len(loggers) > 0 && loggers[0] != nil {
+		logger = loggers[0]
+	}
+	return &MetricPointStore{pool: pool, logger: logger}, nil
 }
 
 // Flush 原子写入指标点、任务事件和 Outbox。返回 nil 表示事务已经提交。

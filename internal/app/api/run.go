@@ -13,6 +13,7 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/health"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/audit"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/events"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	ingestservice "github.com/ougi777/metrics-pipeline-go/internal/service/ingest"
@@ -47,7 +48,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 	defer database.Close()
 
 	//创建Metricpoint表持久层dao对象
-	store, err := postgres.NewMetricPointStore(database)
+	store, err := postgres.NewMetricPointStore(database, logger)
 	if err != nil {
 		logger.Error("metric point store initialization failed", slog.Any("error", err))
 		return 1
@@ -104,6 +105,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 			HistoryService: history.NewService(store),
 			SummaryService: summary.NewService(store),
 			EventsService:  events.NewService(store),
+			AuditService:   audit.NewService(store),
 			EventHub:       hub,
 		}),
 	}

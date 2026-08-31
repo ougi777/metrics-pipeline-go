@@ -48,7 +48,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 
 	//创建持久层操作对象：
 	// 1.指标持久化 2.历史查询 3.摘要查询
-	store, err := postgres.NewMetricPointStore(pool)
+	store, err := postgres.NewMetricPointStore(pool, logger)
 	if err != nil {
 		logger.Error("metric point store initialization failed", slog.Any("error", err))
 		return 1

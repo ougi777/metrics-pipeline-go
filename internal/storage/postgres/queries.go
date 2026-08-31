@@ -40,3 +40,6 @@ var queryMetricEventsSQL string
 
 //go:embed sql/query_metric_event_bounds.sql
 var queryMetricEventBoundsSQL string
+
+//go:embed sql/query_metric_audit.sql
+var queryMetricAuditSQL string

@@ -34,3 +34,9 @@ var markMetricOutboxFailedSQL string
 
 //go:embed sql/release_metric_outbox_claim.sql
 var releaseMetricOutboxClaimSQL string
+
+//go:embed sql/query_metric_events.sql
+var queryMetricEventsSQL string
+
+//go:embed sql/query_metric_event_bounds.sql
+var queryMetricEventBoundsSQL string

@@ -146,6 +146,8 @@ func (b *RabbitMQMetricEventBridge) consumeSession(ctx context.Context, session 
 				}
 				continue
 			}
+
+			//广播到所有该api实例连接的SSE客户端
 			if err := b.sink.HandleMetricEvent(ctx, event); err != nil {
 				if nackErr := delivery.Nack(false, true); nackErr != nil {
 					return errors.Join(err, nackErr)

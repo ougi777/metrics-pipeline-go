@@ -115,28 +115,34 @@ func (r *OutboxRelay) runLeader(ctx context.Context) error {
 			}
 			continue
 		}
+		var batchBackoff time.Duration
 		for index, event := range events {
 			started := time.Now()
 			if err := r.publisher.Publish(ctx, event); err != nil {
 				markErr := r.repository.MarkFailed(ctx, event, backoff)
-				releaseErr := r.releaseClaims(ctx, events[index+1:])
-				if markErr != nil || releaseErr != nil {
-					return errors.Join(err, markErr, releaseErr)
+				if markErr != nil {
+					return errors.Join(err, markErr, r.releaseClaims(ctx, events[index+1:]))
+				}
+				if batchBackoff == 0 {
+					batchBackoff = backoff
 				}
 				r.logger.Warn("metric event publish failed",
 					slog.Int64("outbox_id", event.ID), slog.String("task_id", event.TaskID), slog.Int64("event_seq", event.EventSeq),
 					slog.Duration("backoff", backoff), slog.Int64("duration_ms", time.Since(started).Milliseconds()), slog.Any("error", err))
-				if !r.wait(ctx, backoff) {
-					return nil
-				}
 				backoff = minDuration(backoff*2, r.config.MaxBackoff)
-				return nil
+				continue
 			}
 			if err := r.repository.MarkPublished(ctx, event); err != nil {
 				return errors.Join(err, r.releaseClaims(ctx, events[index+1:]))
 			}
 			backoff = r.config.InitialBackoff
 			r.logger.Debug("metric event published", slog.Int64("outbox_id", event.ID), slog.String("task_id", event.TaskID), slog.Int64("event_seq", event.EventSeq), slog.Int64("duration_ms", time.Since(started).Milliseconds()))
+		}
+		if batchBackoff > 0 {
+			if !r.wait(ctx, batchBackoff) {
+				return nil
+			}
+			return nil
 		}
 	}
 	return nil

@@ -13,11 +13,41 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/summary"
+	"github.com/ougi777/metrics-pipeline-go/internal/sse"
 )
 
 // MetricPointStore 使用一个 PostgreSQL 事务持久化一次 worker flush。
 type MetricPointStore struct {
 	pool *pgxpool.Pool
+}
+
+func (s *MetricPointStore) QueryEvents(ctx context.Context, taskID string, after int64) ([]sse.Event, error) {
+	rows, err := s.pool.Query(ctx, queryMetricEventsSQL, taskID, after)
+	if err != nil {
+		return nil, fmt.Errorf("query metric events: %w", err)
+	}
+	defer rows.Close()
+	events := make([]sse.Event, 0)
+	for rows.Next() {
+		var event sse.Event
+		if err := rows.Scan(&event.EventSeq, &event.Payload); err != nil {
+			return nil, fmt.Errorf("scan metric event: %w", err)
+		}
+		event.TaskID = taskID
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read metric events: %w", err)
+	}
+	return events, nil
+}
+
+func (s *MetricPointStore) EventBounds(ctx context.Context, taskID string) (int64, int64, error) {
+	var oldest, latest int64
+	if err := s.pool.QueryRow(ctx, queryMetricEventBoundsSQL, taskID).Scan(&oldest, &latest); err != nil {
+		return 0, 0, fmt.Errorf("query metric event bounds: %w", err)
+	}
+	return oldest, latest, nil
 }
 
 // QuerySummary aggregates the retained metric points for one task in PostgreSQL.

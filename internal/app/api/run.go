@@ -11,9 +11,11 @@ import (
 	"github.com/ougi777/metrics-pipeline-go/internal/config"
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/events"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	ingestservice "github.com/ougi777/metrics-pipeline-go/internal/service/ingest"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/summary"
+	"github.com/ougi777/metrics-pipeline-go/internal/sse"
 	"github.com/ougi777/metrics-pipeline-go/internal/storage/postgres"
 	httptransport "github.com/ougi777/metrics-pipeline-go/internal/transport/http"
 )
@@ -48,6 +50,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		logger.Error("metric point store initialization failed", slog.Any("error", err))
 		return 1
 	}
+	hub := sse.NewHub()
 
 	//每个api实例内的广播接收器
 	eventBridge, err := messaging.NewRabbitMQMetricEventBridge(messaging.EventBridgeConfig{
@@ -55,7 +58,7 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		InstanceID: runtimeInstanceID(cfg),
 	}, messaging.EventSinkFunc(func(ctx context.Context, event domain.RealtimeEvent) error {
 		logger.DebugContext(ctx, "realtime metric event received", slog.String("task_id", event.TaskID), slog.Int64("event_seq", event.EventSeq))
-		return nil
+		return hub.HandleMetricEvent(ctx, event)
 	}), logger)
 	if err != nil {
 		logger.Error("realtime event bridge initialization failed", slog.Any("error", err))
@@ -96,6 +99,8 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 			IngestService:  ingestService,
 			HistoryService: history.NewService(store),
 			SummaryService: summary.NewService(store),
+			EventsService:  events.NewService(store),
+			EventHub:       hub,
 		}),
 	}
 	errCh := make(chan error, 1)

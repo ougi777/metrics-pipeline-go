@@ -138,29 +138,29 @@ func TestOutboxRelayRetriesFailureAndPreservesIntent(t *testing.T) {
 	}
 }
 
-func TestOutboxRelayReleasesUnprocessedBatchAfterPublishFailure(t *testing.T) {
+func TestOutboxRelayContinuesOtherTasksAfterPublishFailure(t *testing.T) {
 	events := []domain.OutboxEvent{
 		{ID: 1, TaskID: "task-a", EventSeq: 1, ClaimToken: "token"},
-		{ID: 2, TaskID: "task-a", EventSeq: 2, ClaimToken: "token"},
-		{ID: 3, TaskID: "task-a", EventSeq: 3, ClaimToken: "token"},
+		{ID: 2, TaskID: "task-b", EventSeq: 1, ClaimToken: "token"},
+		{ID: 3, TaskID: "task-c", EventSeq: 1, ClaimToken: "token"},
 	}
 	repository := &relayRepositoryFake{acquired: true, batch: events}
 	publisher := &relayPublisherFake{failures: 1}
-	relay, err := NewOutboxRelay(OutboxRelayConfig{InitialBackoff: time.Nanosecond}, repository, publisher, nil)
+	relay, err := NewOutboxRelay(OutboxRelayConfig{InitialBackoff: time.Millisecond}, repository, publisher, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := relay.runLeader(context.Background()); err != nil {
 		t.Fatalf("runLeader() error = %v", err)
 	}
-	if publisher.attempts != 1 {
-		t.Fatalf("publish attempts = %d, want 1", publisher.attempts)
+	if publisher.attempts != 3 {
+		t.Fatalf("publish attempts = %d, want 3", publisher.attempts)
 	}
 	if repository.failed != 1 {
 		t.Fatalf("failed count = %d, want 1", repository.failed)
 	}
-	if repository.released != 2 {
-		t.Fatalf("released claims = %d, want 2", repository.released)
+	if repository.published != 2 {
+		t.Fatalf("published count = %d, want 2", repository.published)
 	}
 }
 

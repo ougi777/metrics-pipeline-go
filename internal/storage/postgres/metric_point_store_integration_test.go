@@ -172,6 +172,63 @@ func TestOutboxStoreReleasesClaim(t *testing.T) {
 	}
 }
 
+func TestOutboxStoreClaimsOnlyTaskHeads(t *testing.T) {
+	pool, _ := newMetricStoreIntegrationDatabase(t)
+	store, err := NewOutboxStore(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for _, row := range []struct {
+		task string
+		seq  int
+	}{
+		{task: "ordered-a", seq: 1}, {task: "ordered-a", seq: 2}, {task: "ordered-b", seq: 1},
+	} {
+		if _, err := pool.Exec(ctx, `INSERT INTO metric_outbox (task_id, event_seq, payload) VALUES ($1, $2, '{"points":[]}')`, row.task, row.seq); err != nil {
+			t.Fatalf("insert outbox event: %v", err)
+		}
+	}
+	claimed, _, err := store.Claim(ctx, 10, time.Hour)
+	if err != nil || len(claimed) != 2 {
+		t.Fatalf("first Claim() = events:%#v err:%v, want two task heads", claimed, err)
+	}
+	byTask := make(map[string]domain.OutboxEvent, len(claimed))
+	for _, event := range claimed {
+		byTask[event.TaskID] = event
+		if event.EventSeq != 1 {
+			t.Fatalf("claimed non-head event = %#v", event)
+		}
+	}
+	if err := store.MarkFailed(ctx, byTask["ordered-a"], time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.MarkPublished(ctx, byTask["ordered-b"]); err != nil {
+		t.Fatal(err)
+	}
+	claimed, _, err = store.Claim(ctx, 10, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(claimed) != 0 {
+		t.Fatalf("Claim() exposed blocked successor = %#v", claimed)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE metric_outbox SET next_attempt_at = clock_timestamp() WHERE task_id = 'ordered-a' AND event_seq = 1`); err != nil {
+		t.Fatal(err)
+	}
+	retry, _, err := store.Claim(ctx, 10, time.Hour)
+	if err != nil || len(retry) != 1 || retry[0].TaskID != "ordered-a" || retry[0].EventSeq != 1 {
+		t.Fatalf("Claim() failed head retry = events:%#v err:%v", retry, err)
+	}
+	if err := store.MarkPublished(ctx, retry[0]); err != nil {
+		t.Fatal(err)
+	}
+	claimed, _, err = store.Claim(ctx, 10, time.Hour)
+	if err != nil || len(claimed) != 1 || claimed[0].TaskID != "ordered-a" || claimed[0].EventSeq != 2 {
+		t.Fatalf("Claim() successor = events:%#v err:%v", claimed, err)
+	}
+}
+
 func ptrInt64(value int64) *int64 { return &value }
 
 func TestMetricPointStorePersistsAndDeduplicatesFlush(t *testing.T) {

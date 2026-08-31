@@ -11,11 +11,69 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 )
 
 // MetricPointStore 使用一个 PostgreSQL 事务持久化一次 worker flush。
 type MetricPointStore struct {
 	pool *pgxpool.Pool
+}
+
+// QueryHistory applies all filters and performs bounded aggregation in PostgreSQL.
+func (s *MetricPointStore) QueryHistory(ctx context.Context, query history.Query) (history.Result, error) {
+	if query.MaxPoints < 1 || query.MaxPoints > 5000 {
+		return history.Result{}, fmt.Errorf("max_points must be between 1 and 5000")
+	}
+	cutoff := time.Now().UTC().Add(-168 * time.Hour)
+	args := []any{query.TaskID, cutoff, nullableStrings(query.Keys), nullableMillis(query.From), nullableMillis(query.To), nullableStep(query.StepFrom), nullableStep(query.StepTo), query.MaxPoints}
+	rows, err := s.pool.Query(ctx, queryMetricHistorySQL, args...)
+	if err != nil {
+		return history.Result{}, fmt.Errorf("query metric history: %w", err)
+	}
+	defer rows.Close()
+	result := history.Result{}
+	for rows.Next() {
+		var exists bool
+		var bucket *int64
+		var key *string
+		var step *int32
+		var ts *time.Time
+		var v, min, max *float64
+		if err := rows.Scan(&exists, &bucket, &key, &step, &ts, &v, &min, &max); err != nil {
+			return history.Result{}, fmt.Errorf("scan metric history: %w", err)
+		}
+		result.Exists = exists
+		if bucket != nil {
+			result.BucketMS = *bucket
+		}
+		if key != nil {
+			result.Points = append(result.Points, history.Point{Key: *key, Step: *step, TS: ts.UnixMilli(), V: *v, Min: *min, Max: *max})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return history.Result{}, fmt.Errorf("read metric history: %w", err)
+	}
+	result.Downsampled = result.BucketMS > 0
+	return result, nil
+}
+
+func nullableStrings(value []string) any {
+	if len(value) == 0 {
+		return nil
+	}
+	return value
+}
+func nullableMillis(value *int64) any {
+	if value == nil {
+		return nil
+	}
+	return time.UnixMilli(*value).UTC()
+}
+func nullableStep(value *int64) any {
+	if value == nil {
+		return nil
+	}
+	return int32(*value)
 }
 
 type generatedEvent struct {

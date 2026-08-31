@@ -191,6 +191,21 @@ func TestLoadRejectsMissingAMQPURLForAPI(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsMissingDatabaseURLForAPI(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "api")
+	t.Setenv("INSTANCE_ID", "local")
+	t.Setenv("HTTP_ADDR", ":8080")
+	t.Setenv("ADMIN_ADDR", ":8081")
+	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
+	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("AMQP_URL", "amqp://metrics:metrics@localhost:5672/")
+	unsetEnv(t, "DATABASE_URL")
+
+	if _, err := Load("api"); err == nil {
+		t.Fatal("Load() error = nil, want missing DATABASE_URL error")
+	}
+}
+
 func TestLoadAllowsMissingAMQPURLForSimulator(t *testing.T) {
 	t.Setenv("SERVICE_NAME", "sim")
 	t.Setenv("INSTANCE_ID", "local")

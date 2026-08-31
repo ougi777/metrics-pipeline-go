@@ -18,8 +18,46 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+func TestMetricPointStoreQueriesAndDownsamplesHistory(t *testing.T) {
+	pool, store := newMetricStoreIntegrationDatabase(t)
+	now := time.Now().UTC().Add(-time.Hour).Truncate(time.Millisecond)
+	for step := int32(0); step < 20; step++ {
+		if _, err := pool.Exec(context.Background(), `INSERT INTO metric_points (task_id, key, step, ts, value) VALUES ($1, 'loss', $2, $3, $4)`, "history-task", step, now.Add(time.Duration(step)*time.Second), float64(step)); err != nil {
+			t.Fatalf("insert loss point: %v", err)
+		}
+	}
+	if _, err := pool.Exec(context.Background(), `INSERT INTO metric_points (task_id, key, step, ts, value) VALUES ($1, 'lr', 1, $2, 0.5)`, "history-task", now); err != nil {
+		t.Fatalf("insert lr point: %v", err)
+	}
+
+	result, err := store.QueryHistory(context.Background(), history.Query{TaskID: "history-task", MaxPoints: 5})
+	if err != nil {
+		t.Fatalf("QueryHistory() error = %v", err)
+	}
+	if !result.Exists || !result.Downsampled || result.BucketMS != 3_801 {
+		t.Fatalf("metadata = %#v", result)
+	}
+	if len(result.Points) != 6 {
+		t.Fatalf("point count = %d, want 6", len(result.Points))
+	}
+	if result.Points[0].Key != "loss" || result.Points[0].Min != 0 || result.Points[0].Max != 3 || result.Points[0].V != 1.5 {
+		t.Fatalf("first sampled point = %#v", result.Points[0])
+	}
+
+	filtered, err := store.QueryHistory(context.Background(), history.Query{TaskID: "history-task", Keys: []string{"lr"}, From: ptrInt64(now.Add(-time.Second).UnixMilli()), To: ptrInt64(now.Add(time.Second).UnixMilli()), MaxPoints: 5})
+	if err != nil {
+		t.Fatalf("filtered QueryHistory() error = %v", err)
+	}
+	if len(filtered.Points) != 1 || filtered.Points[0].Key != "lr" || filtered.Downsampled {
+		t.Fatalf("filtered result = %#v", filtered)
+	}
+}
+
+func ptrInt64(value int64) *int64 { return &value }
 
 func TestMetricPointStorePersistsAndDeduplicatesFlush(t *testing.T) {
 	pool, store := newMetricStoreIntegrationDatabase(t)

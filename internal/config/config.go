@@ -214,5 +214,5 @@ func requiresAMQP(serviceName string) bool {
 }
 
 func requiresDatabase(serviceName string) bool {
-	return serviceName == "worker"
+	return serviceName == "worker" || serviceName == "api"
 }

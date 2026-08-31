@@ -53,4 +53,5 @@ func setValidEnvironment(t *testing.T) {
 	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
 	t.Setenv("LOG_LEVEL", "info")
 	t.Setenv("AMQP_URL", "amqp://metrics:metrics@localhost:5672/")
+	t.Setenv("DATABASE_URL", "postgres://metrics:metrics@localhost:5432/metrics")
 }

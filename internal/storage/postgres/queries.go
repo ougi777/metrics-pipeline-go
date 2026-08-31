@@ -16,3 +16,6 @@ var ensureMetricPointPartitionSQL string
 
 //go:embed sql/maintain_metric_retention.sql
 var maintainMetricRetentionSQL string
+
+//go:embed sql/query_metric_history.sql
+var queryMetricHistorySQL string

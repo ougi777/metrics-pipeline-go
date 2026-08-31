@@ -10,7 +10,9 @@ import (
 	baseapp "github.com/ougi777/metrics-pipeline-go/internal/app"
 	"github.com/ougi777/metrics-pipeline-go/internal/config"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
+	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
 	ingestservice "github.com/ougi777/metrics-pipeline-go/internal/service/ingest"
+	"github.com/ougi777/metrics-pipeline-go/internal/storage/postgres"
 	httptransport "github.com/ougi777/metrics-pipeline-go/internal/transport/http"
 )
 
@@ -28,6 +30,17 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 	if ctx.Err() != nil {
 		logger.Info("service stopped", slog.Any("reason", ctx.Err()))
 		return 0
+	}
+	database, err := postgres.OpenPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("postgres initialization failed", slog.Any("error", err))
+		return 1
+	}
+	defer database.Close()
+	store, err := postgres.NewMetricPointStore(database)
+	if err != nil {
+		logger.Error("metric point store initialization failed", slog.Any("error", err))
+		return 1
 	}
 
 	metricPublisher, err := messaging.NewRabbitMQMetricBatchPublisher(ctx, messaging.PublisherConfig{
@@ -53,7 +66,8 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httptransport.NewRouter(httptransport.RouterOptions{
-			IngestService: ingestService,
+			IngestService:  ingestService,
+			HistoryService: history.NewService(store),
 		}),
 	}
 	errCh := make(chan error, 1)

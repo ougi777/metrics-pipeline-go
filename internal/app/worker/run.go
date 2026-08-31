@@ -3,10 +3,14 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
+	"time"
 
 	baseapp "github.com/ougi777/metrics-pipeline-go/internal/app"
 	"github.com/ougi777/metrics-pipeline-go/internal/config"
+	"github.com/ougi777/metrics-pipeline-go/internal/health"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
 	"github.com/ougi777/metrics-pipeline-go/internal/storage/postgres"
 	"golang.org/x/sync/errgroup"
@@ -82,6 +86,20 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		logger.Error("rabbitmq consumer initialization failed", slog.Any("error", err))
 		return 1
 	}
+	state := health.NewState()
+	adminServer := &http.Server{Addr: cfg.AdminAddr, Handler: health.Handler{
+		State: state, ProbeTimeout: 2 * time.Second,
+		Postgres: func(ctx context.Context) error { return pool.Ping(ctx) },
+		RabbitMQ: func(ctx context.Context) error { return messaging.Ping(ctx, cfg.AMQPURL) },
+	}}
+	adminErrCh := make(chan error, 1)
+	go func() {
+		logger.Info("admin server starting", slog.String("addr", cfg.AdminAddr))
+		if err := adminServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			adminErrCh <- err
+		}
+	}()
+	state.SetReady(true)
 
 	//errorgroup 启动：
 	// 1.分区清理维护协程
@@ -106,9 +124,34 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		logger.Info("outbox relay starting")
 		return relay.Run(groupCtx)
 	})
-	if err := group.Wait(); err != nil {
-		logger.Error("worker runtime failed", slog.Any("error", err))
-		return 1
+	groupDone := make(chan error, 1)
+	go func() { groupDone <- group.Wait() }()
+	select {
+	case <-ctx.Done():
+		state.SetReady(false)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+		if err := adminServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("admin server shutdown failed", slog.Any("error", err))
+			return 1
+		}
+		if err := <-groupDone; err != nil {
+			logger.Error("worker runtime failed", slog.Any("error", err))
+			return 1
+		}
+	case err := <-groupDone:
+		state.SetReady(false)
+		_ = adminServer.Close()
+		if err != nil {
+			logger.Error("worker runtime failed", slog.Any("error", err))
+			return 1
+		}
+	case err := <-adminErrCh:
+		state.SetReady(false)
+		if err != nil {
+			logger.Error("admin server failed", slog.Any("error", err))
+			return 1
+		}
 	}
 	logger.Info("service stopped", slog.Any("reason", ctx.Err()))
 

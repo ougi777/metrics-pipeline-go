@@ -6,13 +6,13 @@
 
 ## Acceptance Criteria
 
-- [ ] `/healthz` 返回进程存活状态。
-- [ ] `/readyz` 检查 PostgreSQL 可达性。
-- [ ] `/readyz` 检查 RabbitMQ 可达性。
-- [ ] 依赖异常时就绪检查返回对应的非就绪状态。
-- [ ] Compose 配置 API 和 worker 的健康检查。
-- [ ] API 收到 SIGTERM 后停止接受新请求并关闭连接。
-- [ ] worker 收到 SIGTERM 后停止拉取消息、完成当前 flush 并关闭 AMQP 与数据库连接。
+- [x] `/healthz` 返回进程存活状态。
+- [x] `/readyz` 检查 PostgreSQL 可达性。
+- [x] `/readyz` 检查 RabbitMQ 可达性。
+- [x] 依赖异常时就绪检查返回对应的非就绪状态。
+- [x] Compose 配置 API 和 worker 的健康检查。
+- [x] API 收到 SIGTERM 后停止接受新请求并关闭连接。
+- [x] worker 收到 SIGTERM 后停止拉取消息、完成当前 flush 并关闭 AMQP 与数据库连接。
 
 ## Dependencies
 

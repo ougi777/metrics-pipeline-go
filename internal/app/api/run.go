@@ -6,10 +6,12 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	baseapp "github.com/ougi777/metrics-pipeline-go/internal/app"
 	"github.com/ougi777/metrics-pipeline-go/internal/config"
 	"github.com/ougi777/metrics-pipeline-go/internal/domain"
+	"github.com/ougi777/metrics-pipeline-go/internal/health"
 	"github.com/ougi777/metrics-pipeline-go/internal/messaging"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/events"
 	"github.com/ougi777/metrics-pipeline-go/internal/service/history"
@@ -65,7 +67,9 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		return 1
 	}
 
+	bridgeDone := make(chan struct{})
 	go func() {
+		defer close(bridgeDone)
 		if err := eventBridge.Run(ctx); err != nil {
 			logger.Error("realtime event bridge stopped", slog.Any("error", err))
 		}
@@ -103,6 +107,13 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 			EventHub:       hub,
 		}),
 	}
+	state := health.NewState()
+	adminServer := &http.Server{Addr: cfg.AdminAddr, Handler: health.Handler{
+		State: state, ProbeTimeout: 2 * time.Second,
+		Postgres: func(ctx context.Context) error { return database.Ping(ctx) },
+		RabbitMQ: func(ctx context.Context) error { return messaging.Ping(ctx, cfg.AMQPURL) },
+	}}
+	state.SetReady(true)
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("http server starting", slog.String("addr", cfg.HTTPAddr))
@@ -113,13 +124,30 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 		}
 		errCh <- nil
 	}()
+	go func() {
+		logger.Info("admin server starting", slog.String("addr", cfg.AdminAddr))
+		if err := adminServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
 
 	select {
 	case <-ctx.Done():
+		state.SetReady(false)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			logger.Error("http server shutdown failed", slog.Any("error", err))
+			return 1
+		}
+		if err := adminServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("admin server shutdown failed", slog.Any("error", err))
+			return 1
+		}
+		select {
+		case <-bridgeDone:
+		case <-shutdownCtx.Done():
+			logger.Error("realtime event bridge shutdown timed out")
 			return 1
 		}
 		if err := <-errCh; err != nil {

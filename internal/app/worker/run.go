@@ -80,12 +80,16 @@ func runService(ctx context.Context, cfg config.Config, logger *slog.Logger) int
 	//mq指标消费者，取出mq消息批量落库
 	consumer, err := messaging.NewRabbitMQMetricConsumer(messaging.ConsumerConfig{
 		URL:             cfg.AMQPURL,
+		Prefetch:        cfg.WorkerConsumerPrefetch,
+		BatchMax:        cfg.WorkerConsumerBatchMax,
+		FlushInterval:   cfg.WorkerConsumerFlushInterval,
 		ShutdownTimeout: cfg.ShutdownTimeout,
 	}, store, logger)
 	if err != nil {
 		logger.Error("rabbitmq consumer initialization failed", slog.Any("error", err))
 		return 1
 	}
+
 	state := health.NewState()
 	adminServer := &http.Server{Addr: cfg.AdminAddr, Handler: health.Handler{
 		State: state, ProbeTimeout: 2 * time.Second,

@@ -126,7 +126,9 @@ func (s *MetricPointStore) QueryHistory(ctx context.Context, query history.Query
 	}
 	cutoff := time.Now().UTC().Add(-168 * time.Hour)
 	args := []any{query.TaskID, cutoff, nullableStrings(query.Keys), nullableMillis(query.From), nullableMillis(query.To), nullableStep(query.StepFrom), nullableStep(query.StepTo), query.MaxPoints}
-	rows, err := s.pool.Query(ctx, queryMetricHistorySQL, args...)
+	// Optional filters have materially different selectivity, so use a custom plan for each request.
+	queryArgs := append([]any{pgx.QueryExecModeExec}, args...)
+	rows, err := s.pool.Query(ctx, queryMetricHistorySQL, queryArgs...)
 	if err != nil {
 		return history.Result{}, fmt.Errorf("query metric history: %w", err)
 	}

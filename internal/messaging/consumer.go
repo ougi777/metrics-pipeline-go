@@ -16,8 +16,8 @@ import (
 
 const (
 	defaultConsumerBatchMax          = 500
-	defaultConsumerFlushInterval     = time.Second
-	defaultConsumerPrefetch          = 16
+	defaultConsumerFlushInterval     = 100 * time.Millisecond
+	defaultConsumerPrefetch          = 500
 	defaultConsumerFailureBackoff    = 100 * time.Millisecond
 	defaultConsumerFailureMaxBackoff = 30 * time.Second
 	defaultConsumerReconnectBackoff  = 100 * time.Millisecond

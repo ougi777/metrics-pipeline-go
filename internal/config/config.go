@@ -20,6 +20,9 @@ const defaultAMQPPublishInitialBackoff = 100 * time.Millisecond
 const defaultAMQPPublishMaxBackoff = time.Second
 const defaultRetentionWindow = 168 * time.Hour
 const defaultPartitionMaintenanceInterval = time.Hour
+const defaultWorkerConsumerPrefetch = 500
+const defaultWorkerConsumerBatchMax = 500
+const defaultWorkerConsumerFlushInterval = 100 * time.Millisecond
 
 // Config 包含所有进程共享的运行时配置。
 type Config struct {
@@ -39,6 +42,9 @@ type Config struct {
 	AMQPPublishMaxBackoff        time.Duration
 	RetentionWindow              time.Duration
 	PartitionMaintenanceInterval time.Duration
+	WorkerConsumerPrefetch       int
+	WorkerConsumerBatchMax       int
+	WorkerConsumerFlushInterval  time.Duration
 }
 
 // Load 先读取可选的本地 .env 文件，再从环境变量解析配置。
@@ -76,11 +82,23 @@ func Load(defaultServiceName string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	workerConsumerFlushInterval, err := durationEnv("WORKER_CONSUMER_FLUSH_INTERVAL", defaultWorkerConsumerFlushInterval)
+	if err != nil {
+		return Config{}, err
+	}
 	amqpPublishers, err := intEnv("AMQP_PUBLISHERS", defaultAMQPPublishers)
 	if err != nil {
 		return Config{}, err
 	}
 	amqpPublishMaxAttempts, err := intEnv("AMQP_PUBLISH_MAX_ATTEMPTS", defaultAMQPPublishMaxAttempts)
+	if err != nil {
+		return Config{}, err
+	}
+	workerConsumerPrefetch, err := intEnv("WORKER_CONSUMER_PREFETCH", defaultWorkerConsumerPrefetch)
+	if err != nil {
+		return Config{}, err
+	}
+	workerConsumerBatchMax, err := intEnv("WORKER_CONSUMER_BATCH_MAX", defaultWorkerConsumerBatchMax)
 	if err != nil {
 		return Config{}, err
 	}
@@ -102,6 +120,9 @@ func Load(defaultServiceName string) (Config, error) {
 		AMQPPublishMaxBackoff:        amqpPublishMaxBackoff,
 		RetentionWindow:              retentionWindow,
 		PartitionMaintenanceInterval: partitionMaintenanceInterval,
+		WorkerConsumerPrefetch:       workerConsumerPrefetch,
+		WorkerConsumerBatchMax:       workerConsumerBatchMax,
+		WorkerConsumerFlushInterval:  workerConsumerFlushInterval,
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -157,6 +178,15 @@ func (c Config) Validate() error {
 	}
 	if c.PartitionMaintenanceInterval <= 0 {
 		return fmt.Errorf("PARTITION_MAINTENANCE_INTERVAL must be greater than zero")
+	}
+	if c.WorkerConsumerPrefetch <= 0 {
+		return fmt.Errorf("WORKER_CONSUMER_PREFETCH must be greater than zero")
+	}
+	if c.WorkerConsumerBatchMax <= 0 {
+		return fmt.Errorf("WORKER_CONSUMER_BATCH_MAX must be greater than zero")
+	}
+	if c.WorkerConsumerFlushInterval <= 0 {
+		return fmt.Errorf("WORKER_CONSUMER_FLUSH_INTERVAL must be greater than zero")
 	}
 
 	switch c.LogLevel {

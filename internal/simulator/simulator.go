@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -40,6 +41,7 @@ type Config struct {
 	Audit         bool
 	AuditTimeout  time.Duration
 	AuditInterval time.Duration
+	OnTaskFailure func(TaskFailure)
 }
 
 func (c Config) Validate() error {
@@ -105,9 +107,14 @@ type AuditResult struct {
 	Differences []string       `json:"differences,omitempty"`
 	Error       string         `json:"error,omitempty"`
 }
+type TaskFailure struct {
+	TaskID string `json:"task_id"`
+	Error  string `json:"error"`
+}
 type Report struct {
-	Pass    bool          `json:"pass"`
-	Results []AuditResult `json:"results"`
+	Pass     bool          `json:"pass"`
+	Results  []AuditResult `json:"results"`
+	Failures []TaskFailure `json:"failures,omitempty"`
 }
 
 type Generator struct {
@@ -186,7 +193,7 @@ func RunWithReport(ctx context.Context, cfg Config) (Report, error) {
 		client = &http.Client{Timeout: 15 * time.Second}
 	}
 	var wg sync.WaitGroup
-	errCh := make(chan error, cfg.Tasks)
+	failureCh := make(chan TaskFailure, cfg.Tasks)
 	expectedCh := make(chan Expected, cfg.Tasks)
 	//一个task启动一个协程
 	for task := 0; task < cfg.Tasks; task++ {
@@ -219,9 +226,13 @@ func RunWithReport(ctx context.Context, cfg Config) (Report, error) {
 				if rng.Float64() >= cfg.FailureRate {
 					//post到api接口
 					if err := postBatch(ctx, client, cfg.Endpoint, batch); err != nil {
+						failure := TaskFailure{TaskID: id, Error: err.Error()}
 						select {
-						case errCh <- fmt.Errorf("task %s: %w", id, err):
+						case failureCh <- failure:
 						default:
+						}
+						if cfg.OnTaskFailure != nil {
+							cfg.OnTaskFailure(failure)
 						}
 						return
 					}
@@ -243,17 +254,17 @@ func RunWithReport(ctx context.Context, cfg Config) (Report, error) {
 		}(task)
 	}
 	wg.Wait()
-	select {
-	case err := <-errCh:
-		return Report{}, err
-	default:
-	}
 	close(expectedCh)
+	close(failureCh)
 	report := Report{Pass: true}
 	for expected := range expectedCh {
 		report.Results = append(report.Results, expectedResult(expected))
 	}
 	sort.Slice(report.Results, func(i, j int) bool { return report.Results[i].TaskID < report.Results[j].TaskID })
+	for failure := range failureCh {
+		report.Failures = append(report.Failures, failure)
+	}
+	sort.Slice(report.Failures, func(i, j int) bool { return report.Failures[i].TaskID < report.Failures[j].TaskID })
 	if cfg.Audit {
 		auditReport(ctx, client, auditEndpoint(cfg.Endpoint), report.Results, cfg.AuditTimeout, cfg.AuditInterval)
 	}
@@ -261,6 +272,11 @@ func RunWithReport(ctx context.Context, cfg Config) (Report, error) {
 		if !result.Pass {
 			report.Pass = false
 		}
+	}
+	if len(report.Failures) > 0 {
+		report.Pass = false
+		first := report.Failures[0]
+		return report, fmt.Errorf("%d task(s) failed to ingest; first failure: task %s: %s", len(report.Failures), first.TaskID, first.Error)
 	}
 	return report, nil
 }
@@ -475,7 +491,15 @@ func postBatch(ctx context.Context, client *http.Client, endpoint string, batch 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("ingest returned status %d", resp.StatusCode)
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		if readErr != nil {
+			return fmt.Errorf("ingest returned status %d and read error response: %w", resp.StatusCode, readErr)
+		}
+		message := strings.TrimSpace(string(body))
+		if message == "" {
+			return fmt.Errorf("ingest returned status %d", resp.StatusCode)
+		}
+		return fmt.Errorf("ingest returned status %d: %s", resp.StatusCode, message)
 	}
 	return nil
 }

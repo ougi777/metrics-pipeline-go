@@ -55,9 +55,9 @@ task-1 | accuracy | step=10 | ts=... | 0.95
 
 ### 2. 消费和 flush
 
-consumer 会连接 RabbitMQ、声明拓扑、设置 `Prefetch=16`，并以 `autoAck=false` 接收 delivery。协议错误执行 `Nack(requeue=false)`，消息进入 DLQ。
+consumer 会连接 RabbitMQ、声明拓扑、设置 `Prefetch=500`，并以 `autoAck=false` 接收 delivery。协议错误执行 `Nack(requeue=false)`，消息进入 DLQ。
 
-buffer 满 500 个点、首个点进入后经过 1 秒、worker 优雅关闭时，任一条件都能触发 flush。
+buffer 满 500 个点、首个点进入后经过 100ms、worker 优雅关闭时，任一条件都能触发 flush。
 
 ```go
 type bufferedPoint struct {

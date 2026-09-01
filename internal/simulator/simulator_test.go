@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -82,6 +83,39 @@ func TestRunPostsBatches(t *testing.T) {
 		if _, ok := sample[key]; !ok {
 			t.Errorf("sample missing %s", key)
 		}
+	}
+}
+
+func TestRunWithReportPreservesPartialResultsAfterIngestFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"code":"MQ_UNAVAILABLE"}`))
+	}))
+	defer server.Close()
+
+	cfg := testConfig()
+	cfg.Endpoint = server.URL
+	cfg.Tasks = 1
+	cfg.Duration = 20 * time.Millisecond
+	cfg.Audit = false
+	report, err := RunWithReport(context.Background(), cfg)
+	if err == nil {
+		t.Fatal("RunWithReport() error = nil")
+	}
+	if report.Pass {
+		t.Fatal("report.Pass = true")
+	}
+	if len(report.Results) != 1 {
+		t.Fatalf("results = %d, want 1", len(report.Results))
+	}
+	if len(report.Failures) != 1 {
+		t.Fatalf("failures = %d, want 1", len(report.Failures))
+	}
+	if report.Failures[0].TaskID != "sim-0001" {
+		t.Fatalf("failure task = %q", report.Failures[0].TaskID)
+	}
+	if !strings.Contains(report.Failures[0].Error, "MQ_UNAVAILABLE") {
+		t.Fatalf("failure error = %q", report.Failures[0].Error)
 	}
 }
 

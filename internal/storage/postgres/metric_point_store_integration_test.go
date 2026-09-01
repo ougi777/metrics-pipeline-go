@@ -58,6 +58,41 @@ func TestMetricPointStoreQueriesAndDownsamplesHistory(t *testing.T) {
 	}
 }
 
+func TestMetricPointStoreDownsampleUsesSmallestStepAtFirstTimestamp(t *testing.T) {
+	pool, store := newMetricStoreIntegrationDatabase(t)
+	now := time.Now().UTC().Add(-time.Hour).Truncate(time.Millisecond)
+	for _, point := range []struct {
+		step  int
+		ts    time.Time
+		value float64
+	}{
+		{step: 9, ts: now, value: 9},
+		{step: 3, ts: now, value: 3},
+		{step: 4, ts: now.Add(time.Second), value: 4},
+	} {
+		if _, err := pool.Exec(
+			context.Background(),
+			`INSERT INTO metric_points (task_id, key, step, ts, value) VALUES ('history-tie-task', 'loss', $1, $2, $3)`,
+			point.step,
+			point.ts,
+			point.value,
+		); err != nil {
+			t.Fatalf("insert history point: %v", err)
+		}
+	}
+
+	result, err := store.QueryHistory(context.Background(), history.Query{TaskID: "history-tie-task", MaxPoints: 1})
+	if err != nil {
+		t.Fatalf("QueryHistory() error = %v", err)
+	}
+	if len(result.Points) != 1 {
+		t.Fatalf("point count = %d, want 1", len(result.Points))
+	}
+	if point := result.Points[0]; point.Step != 3 || point.TS != now.UnixMilli() {
+		t.Fatalf("sampled point = %#v, want earliest ts with step 3", point)
+	}
+}
+
 func TestMetricPointStoreQueriesTaskSummary(t *testing.T) {
 	_, store := newMetricStoreIntegrationDatabase(t)
 	now := time.Now().UTC().Truncate(time.Millisecond)
@@ -618,6 +653,13 @@ func newMetricStoreIntegrationDatabase(t *testing.T) (*pgxpool.Pool, *MetricPoin
 	}
 	if _, err := pool.Exec(ctx, string(retentionMigrationSQL)); err != nil {
 		t.Fatalf("apply retention migration: %v", err)
+	}
+	queryIndexMigrationSQL, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", "000003_metric_query_covering_index.sql"))
+	if err != nil {
+		t.Fatalf("read query index migration: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(queryIndexMigrationSQL)); err != nil {
+		t.Fatalf("apply query index migration: %v", err)
 	}
 	if _, err := pool.Exec(ctx, "SELECT ensure_metric_daily_partitions(current_date, 1, 1)"); err != nil {
 		t.Fatalf("create integration partitions: %v", err)

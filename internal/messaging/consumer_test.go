@@ -46,8 +46,11 @@ func TestConsumerDefaultsMatchWorkerBatchingContract(t *testing.T) {
 	if config.BatchMax != 500 {
 		t.Fatalf("BatchMax = %d, want 500", config.BatchMax)
 	}
-	if config.FlushInterval != time.Second {
-		t.Fatalf("FlushInterval = %s, want 1s", config.FlushInterval)
+	if config.Prefetch != 500 {
+		t.Fatalf("Prefetch = %d, want 500", config.Prefetch)
+	}
+	if config.FlushInterval != 100*time.Millisecond {
+		t.Fatalf("FlushInterval = %s, want 100ms", config.FlushInterval)
 	}
 }
 

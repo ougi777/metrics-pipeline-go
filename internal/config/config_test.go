@@ -24,6 +24,9 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("AMQP_PUBLISH_MAX_ATTEMPTS", "4")
 	t.Setenv("AMQP_PUBLISH_INITIAL_BACKOFF", "25ms")
 	t.Setenv("AMQP_PUBLISH_MAX_BACKOFF", "250ms")
+	t.Setenv("WORKER_CONSUMER_PREFETCH", "250")
+	t.Setenv("WORKER_CONSUMER_BATCH_MAX", "400")
+	t.Setenv("WORKER_CONSUMER_FLUSH_INTERVAL", "50ms")
 
 	cfg, err := Load("fallback")
 	if err != nil {
@@ -59,6 +62,15 @@ func TestLoadFromEnvironment(t *testing.T) {
 	}
 	if cfg.AMQPPublishMaxBackoff != 250*time.Millisecond {
 		t.Errorf("AMQPPublishMaxBackoff = %s, want 250ms", cfg.AMQPPublishMaxBackoff)
+	}
+	if cfg.WorkerConsumerPrefetch != 250 {
+		t.Errorf("WorkerConsumerPrefetch = %d, want 250", cfg.WorkerConsumerPrefetch)
+	}
+	if cfg.WorkerConsumerBatchMax != 400 {
+		t.Errorf("WorkerConsumerBatchMax = %d, want 400", cfg.WorkerConsumerBatchMax)
+	}
+	if cfg.WorkerConsumerFlushInterval != 50*time.Millisecond {
+		t.Errorf("WorkerConsumerFlushInterval = %s, want 50ms", cfg.WorkerConsumerFlushInterval)
 	}
 	if cfg.RetentionWindow != 168*time.Hour {
 		t.Errorf("RetentionWindow = %s, want 168h", cfg.RetentionWindow)

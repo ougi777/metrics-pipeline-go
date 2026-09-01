@@ -28,51 +28,78 @@ type check struct {
 }
 
 type report struct {
-	StartedAt  time.Time `json:"started_at"`
-	FinishedAt time.Time `json:"finished_at"`
-	Pass       bool      `json:"pass"`
-	Checks     []check   `json:"checks"`
-	Audit      any       `json:"audit,omitempty"`
+	StartedAt  time.Time   `json:"started_at"`
+	FinishedAt time.Time   `json:"finished_at"`
+	Pass       bool        `json:"pass"`
+	Checks     []check     `json:"checks"`
+	Audit      any         `json:"audit,omitempty"`
+	Load       loadProfile `json:"load"`
+	Errors     []runError  `json:"errors,omitempty"`
+}
+
+type runError struct {
+	Stage   string `json:"stage"`
+	Message string `json:"message"`
+}
+
+type loadProfile struct {
+	Tasks                 int     `json:"tasks"`
+	SamplesPerTaskPerSec  float64 `json:"samples_per_task_per_second"`
+	BatchSize             int     `json:"batch_size"`
+	SamplesPerSecond      float64 `json:"samples_per_second"`
+	MetricPointsPerSecond float64 `json:"metric_points_per_second"`
 }
 
 func main() {
 	endpoint := flag.String("endpoint", envOr("API_INTEGRATION_URL", "http://localhost:8080")+"/api/v1/ingest/metrics", "ingest endpoint")
 	duration := flag.Duration("duration", 10*time.Minute, "load duration")
+	batchSize := flag.Int("batch-size", 10, "samples in each ingest batch")
 	reportPath := flag.String("report", "perf-report.json", "machine-readable report path")
 	flag.Parse()
 
 	r := report{StartedAt: time.Now().UTC(), Pass: true}
-	cfg := simulator.Config{Endpoint: *endpoint, Tasks: 50, Rate: 10, Duration: *duration, BatchSize: 1, TaskPrefix: fmt.Sprintf("perf-%d", time.Now().Unix()), DuplicateRate: 0.02, Audit: true, AuditTimeout: 2 * time.Minute, AuditInterval: 250 * time.Millisecond, EvalEvery: 10, Seed: 42}
+	cfg := simulator.Config{Endpoint: *endpoint, Tasks: 50, Rate: 10, Duration: *duration, BatchSize: *batchSize, TaskPrefix: fmt.Sprintf("perf-%d", time.Now().Unix()), DuplicateRate: 0.02, Audit: true, AuditTimeout: 2 * time.Minute, AuditInterval: 250 * time.Millisecond, EvalEvery: 10, Seed: 42}
+	r.Load = loadProfile{Tasks: cfg.Tasks, SamplesPerTaskPerSec: cfg.Rate, BatchSize: cfg.BatchSize, SamplesPerSecond: float64(cfg.Tasks) * cfg.Rate, MetricPointsPerSecond: float64(cfg.Tasks) * cfg.Rate * 2}
+	cfg.OnTaskFailure = func(failure simulator.TaskFailure) {
+		fmt.Fprintf(os.Stderr, "[错误] 任务=%s 上报失败：%s\n", failure.TaskID, failure.Error)
+	}
+	printStart(r.StartedAt, cfg, r.Load, *reportPath)
 	client := &http.Client{Timeout: 5 * time.Second}
 	ctx := context.Background()
 	loadDone := make(chan struct{})
 	var result simulator.Report
 	var err error
 	go func() { result, err = simulator.RunWithReport(ctx, cfg); close(loadDone) }()
+	fmt.Println("[N1-N3] 写入压测已开始；1 秒后执行 worker 恢复演练")
 	time.Sleep(time.Second)
-	killErr := exec.Command("docker", "compose", "kill", "worker").Run()
+	fmt.Println("[N3] 正在重启 worker 容器")
+	killErr := runDockerCompose("kill", "worker")
 	time.Sleep(2 * time.Second)
-	upErr := exec.Command("docker", "compose", "up", "--detach", "--wait", "worker").Run()
+	upErr := runDockerCompose("up", "--detach", "--wait", "worker")
 	<-loadDone
+	r.Audit = result
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		r.addError("N1-N3 写入压测", err)
 		r.Pass = false
-	} else {
-		r.Audit = result
-		r.Checks = append(r.Checks, check{ID: "N1", Name: "throughput and audit", Value: float64(cfg.Tasks) * cfg.Rate, Threshold: 500, Unit: "samples/s", Pass: result.Pass && *duration >= 10*time.Minute})
-		r.Checks = append(r.Checks, check{ID: "N2", Name: "duplicate persistence", Value: 0, Threshold: 0, Unit: "duplicates", Pass: result.Pass})
-		r.Checks = append(r.Checks, check{ID: "N3", Name: "worker recovery", Value: 0, Threshold: 0, Unit: "lost_or_duplicate_points", Pass: result.Pass && killErr == nil && upErr == nil})
 	}
-	if len(r.Checks) == 0 {
-		r.Checks = append(r.Checks, check{Name: "N1 throughput and audit", Threshold: 0, Unit: "tasks", Pass: false})
+	if killErr != nil {
+		r.addError("N3 终止 worker", killErr)
 	}
+	if upErr != nil {
+		r.addError("N3 重启 worker", upErr)
+	}
+	r.Checks = append(r.Checks, check{ID: "N1", Name: "吞吐与对账", Value: float64(cfg.Tasks) * cfg.Rate, Threshold: 500, Unit: "samples/s", Pass: err == nil && result.Pass && *duration >= 10*time.Minute})
+	r.Checks = append(r.Checks, check{ID: "N2", Name: "重复落库", Value: 0, Threshold: 0, Unit: "duplicates", Pass: err == nil && result.Pass})
+	r.Checks = append(r.Checks, check{ID: "N3", Name: "worker 恢复", Value: 0, Threshold: 0, Unit: "lost_or_duplicate_points", Pass: err == nil && result.Pass && killErr == nil && upErr == nil})
 	base := strings.TrimSuffix(*endpoint, "/api/v1/ingest/metrics")
 	taskID := ""
 	if result.Results != nil && len(result.Results) > 0 {
 		taskID = result.Results[0].TaskID
 	}
 	if taskID != "" {
+		fmt.Println("[N4-N5] 正在准备 8 小时历史数据并测量查询延迟")
 		if err := seedHistory(client, *endpoint, base, taskID); err != nil {
+			r.addError("N4-N5 历史数据准备", err)
 			r.Checks = append(r.Checks, check{ID: "N4", Name: "history seed", Threshold: 0, Unit: "error", Pass: false})
 			r.Checks = append(r.Checks, check{ID: "N5", Name: "summary seed", Threshold: 0, Unit: "error", Pass: false})
 		} else {
@@ -80,10 +107,13 @@ func main() {
 			r.Checks = append(r.Checks, measure(client, base+"/api/v1/tasks/"+taskID+"/summary", "N5 summary P95", 100, "ms"))
 		}
 	} else {
-		r.Checks = append(r.Checks, check{Name: "N4 history query P95", Threshold: 200, Unit: "ms"}, check{Name: "N5 summary P95", Threshold: 100, Unit: "ms"})
+		r.addError("N4-N5", fmt.Errorf("主压测未生成任务 ID"))
+		r.Checks = append(r.Checks, check{ID: "N4", Name: "历史查询 P95", Threshold: 200, Unit: "ms"}, check{ID: "N5", Name: "摘要查询 P95", Threshold: 100, Unit: "ms"})
 	}
+	fmt.Println("[N6] 正在测量 SSE 推送延迟")
 	latency, err := measureSSE(ctx, client, *endpoint, base, cfg.TaskPrefix+"-sse")
 	if err != nil {
+		r.addError("N6 SSE 推送", err)
 		r.Checks = append(r.Checks, check{ID: "N6", Name: "SSE delivery latency", Value: -1, Threshold: 1000, Unit: "ms", Pass: false})
 	} else {
 		r.Checks = append(r.Checks, check{ID: "N6", Name: "SSE delivery latency", Value: latency, Threshold: 1000, Unit: "ms", Pass: latency < 1000})
@@ -97,9 +127,66 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Println(string(b))
+	printSummary(r, *reportPath)
 	if !r.Pass {
 		os.Exit(2)
+	}
+}
+
+func (r *report) addError(stage string, err error) {
+	if err == nil {
+		return
+	}
+	r.Errors = append(r.Errors, runError{Stage: stage, Message: err.Error()})
+	fmt.Fprintf(os.Stderr, "[错误] %s：%s\n", stage, err)
+}
+
+func runDockerCompose(args ...string) error {
+	commandArgs := append([]string{"compose"}, args...)
+	output, err := exec.Command("docker", commandArgs...).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	message := strings.TrimSpace(string(output))
+	if message == "" {
+		return fmt.Errorf("docker %s: %w", strings.Join(commandArgs, " "), err)
+	}
+	return fmt.Errorf("docker %s: %w; 输出：%s", strings.Join(commandArgs, " "), err, message)
+}
+
+func printStart(startedAt time.Time, cfg simulator.Config, load loadProfile, reportPath string) {
+	fmt.Printf("[开始] %s\n", startedAt.Format(time.RFC3339))
+	fmt.Printf("[负载] 接口=%s 时长=%s 任务数=%d 每任务样本/秒=%.0f 批大小=%d\n", cfg.Endpoint, cfg.Duration, load.Tasks, load.SamplesPerTaskPerSec, load.BatchSize)
+	fmt.Printf("[负载] 样本/秒=%.0f 指标点/秒=%.0f 重复比例=%.0f%%\n", load.SamplesPerSecond, load.MetricPointsPerSecond, cfg.DuplicateRate*100)
+	fmt.Printf("[报告] %s\n", reportPath)
+}
+
+func printSummary(r report, reportPath string) {
+	passed := 0
+	for _, check := range r.Checks {
+		if check.Pass {
+			passed++
+		}
+	}
+	rate := 0.0
+	if len(r.Checks) > 0 {
+		rate = float64(passed) * 100 / float64(len(r.Checks))
+	}
+
+	status := "失败"
+	if r.Pass {
+		status = "通过"
+	}
+	fmt.Printf("[结束] %s 总耗时=%s 检查项=%d/%d 通过率=%.0f%% 报告=%s\n", status, r.FinishedAt.Sub(r.StartedAt).Round(time.Second), passed, len(r.Checks), rate, reportPath)
+	for _, check := range r.Checks {
+		status := "失败"
+		if check.Pass {
+			status = "通过"
+		}
+		fmt.Printf("[%s] %s 实测=%.3f%s 阈值=%.3f%s\n", status, check.Name, check.Value, check.Unit, check.Threshold, check.Unit)
+	}
+	for _, failure := range r.Errors {
+		fmt.Printf("[错误] %s：%s\n", failure.Stage, failure.Message)
 	}
 }
 

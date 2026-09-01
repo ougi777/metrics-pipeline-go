@@ -1,0 +1,2002 @@
+{
+  "started_at": "2026-09-01T02:00:51.9494231Z",
+  "finished_at": "2026-09-01T02:06:08.4494238Z",
+  "pass": false,
+  "checks": [
+    {
+      "id": "N1",
+      "name": "throughput and audit",
+      "value": 500,
+      "threshold": 500,
+      "unit": "samples/s",
+      "pass": false
+    },
+    {
+      "id": "N2",
+      "name": "duplicate persistence",
+      "value": 0,
+      "threshold": 0,
+      "unit": "duplicates",
+      "pass": false
+    },
+    {
+      "id": "N3",
+      "name": "worker recovery",
+      "value": 0,
+      "threshold": 0,
+      "unit": "lost_or_duplicate_points",
+      "pass": false
+    },
+    {
+      "id": "N4",
+      "name": "history seed",
+      "value": 0,
+      "threshold": 0,
+      "unit": "error",
+      "pass": false
+    },
+    {
+      "id": "N5",
+      "name": "summary seed",
+      "value": 0,
+      "threshold": 0,
+      "unit": "error",
+      "pass": false
+    },
+    {
+      "id": "N6",
+      "name": "SSE delivery latency",
+      "value": -1,
+      "threshold": 1000,
+      "unit": "ms",
+      "pass": false
+    }
+  ],
+  "audit": {
+    "pass": false,
+    "results": [
+      {
+        "task_id": "perf-1788228051-0001",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0001",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            32,
+            83
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0001",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            32
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 90",
+          "distinct_steps expected 96 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0002",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0002",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            96
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0002",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 92",
+          "distinct_steps expected 97 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0003",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0003",
+          "batch_items": 94,
+          "point_count": 188,
+          "distinct_steps": 94,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            2,
+            39,
+            90
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0003",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            2,
+            39
+          ]
+        },
+        "differences": [
+          "point_count expected 188 got 86",
+          "distinct_steps expected 94 got 43",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0004",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0004",
+          "batch_items": 98,
+          "point_count": 196,
+          "distinct_steps": 98,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": null
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0004",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 196 got 92",
+          "distinct_steps expected 98 got 46",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0005",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0005",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            75
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0005",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 90",
+          "distinct_steps expected 97 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0006",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0006",
+          "batch_items": 94,
+          "point_count": 188,
+          "distinct_steps": 94,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            41,
+            53,
+            96
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0006",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            41
+          ]
+        },
+        "differences": [
+          "point_count expected 188 got 86",
+          "distinct_steps expected 94 got 43",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0007",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0007",
+          "batch_items": 94,
+          "point_count": 188,
+          "distinct_steps": 94,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            4,
+            21,
+            29,
+            62
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0007",
+          "point_count": 84,
+          "distinct_steps": 42,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            4,
+            21,
+            29
+          ]
+        },
+        "differences": [
+          "point_count expected 188 got 84",
+          "distinct_steps expected 94 got 42",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0008",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0008",
+          "batch_items": 98,
+          "point_count": 196,
+          "distinct_steps": 98,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": null
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0008",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 196 got 90",
+          "distinct_steps expected 98 got 45",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0009",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0009",
+          "batch_items": 98,
+          "point_count": 196,
+          "distinct_steps": 98,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": null
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0009",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 196 got 92",
+          "distinct_steps expected 98 got 46",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0010",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0010",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            35,
+            37
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0010",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            35,
+            37
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 86",
+          "distinct_steps expected 96 got 43",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0011",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0011",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            26,
+            83
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0011",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            26
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 88",
+          "distinct_steps expected 95 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0012",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0012",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            9,
+            45,
+            85
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0012",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            9
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 88",
+          "distinct_steps expected 95 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0013",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0013",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            45,
+            69
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0013",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 190 got 90",
+          "distinct_steps expected 95 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0014",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0014",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            78
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0014",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 92",
+          "distinct_steps expected 97 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0015",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0015",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            8
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0015",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            8
+          ]
+        },
+        "differences": [
+          "point_count expected 194 got 88",
+          "distinct_steps expected 97 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0016",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0016",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            19,
+            32
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0016",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            19,
+            32
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 86",
+          "distinct_steps expected 96 got 43",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0017",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0017",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            35
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0017",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            35
+          ]
+        },
+        "differences": [
+          "point_count expected 194 got 88",
+          "distinct_steps expected 97 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0018",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0018",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            11
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0018",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            11
+          ]
+        },
+        "differences": [
+          "point_count expected 194 got 88",
+          "distinct_steps expected 97 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0019",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0019",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": null
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0019",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 90",
+          "distinct_steps expected 97 got 45",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0020",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0020",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            65,
+            84
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0020",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 190 got 90",
+          "distinct_steps expected 95 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0021",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0021",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            44,
+            50
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0021",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            44
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 90",
+          "distinct_steps expected 96 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0022",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0022",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            54
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0022",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 90",
+          "distinct_steps expected 97 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0023",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0023",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            80,
+            88
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0023",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 192 got 92",
+          "distinct_steps expected 96 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0024",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0024",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            35,
+            69,
+            87
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0024",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            35
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 90",
+          "distinct_steps expected 95 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0025",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0025",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            9,
+            21,
+            83
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0025",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            9,
+            21
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 86",
+          "distinct_steps expected 95 got 43",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0026",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0026",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            66
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0026",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 92",
+          "distinct_steps expected 97 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0027",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0027",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            43
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0027",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            43
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 88",
+          "distinct_steps expected 96 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0028",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0028",
+          "batch_items": 94,
+          "point_count": 188,
+          "distinct_steps": 94,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            47,
+            55,
+            89,
+            96
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0028",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 188 got 92",
+          "distinct_steps expected 94 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0029",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0029",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            71
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0029",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 92",
+          "distinct_steps expected 97 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0030",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0030",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            4,
+            19,
+            30
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0030",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            4,
+            19,
+            30
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 86",
+          "distinct_steps expected 95 got 43",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0031",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0031",
+          "batch_items": 93,
+          "point_count": 186,
+          "distinct_steps": 93,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            1,
+            41,
+            72,
+            88
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0031",
+          "point_count": 86,
+          "distinct_steps": 43,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            1,
+            41
+          ]
+        },
+        "differences": [
+          "point_count expected 186 got 86",
+          "distinct_steps expected 93 got 43",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0032",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0032",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            57
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0032",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 88",
+          "distinct_steps expected 96 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0033",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0033",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            49
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0033",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 92",
+          "distinct_steps expected 97 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0034",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0034",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            43,
+            74,
+            91
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0034",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            43
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 90",
+          "distinct_steps expected 95 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0035",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0035",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            28,
+            62,
+            68
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0035",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            28
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 88",
+          "distinct_steps expected 95 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0036",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0036",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            34
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0036",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            34
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 88",
+          "distinct_steps expected 96 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0037",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0037",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            53,
+            80
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0037",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 190 got 90",
+          "distinct_steps expected 95 got 45",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0038",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0038",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            9
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0038",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            9
+          ]
+        },
+        "differences": [
+          "point_count expected 194 got 88",
+          "distinct_steps expected 97 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0039",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0039",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            58,
+            69
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0039",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 192 got 92",
+          "distinct_steps expected 96 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0040",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0040",
+          "batch_items": 93,
+          "point_count": 186,
+          "distinct_steps": 93,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            22,
+            42,
+            46,
+            76,
+            81
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0040",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            22,
+            42
+          ]
+        },
+        "differences": [
+          "point_count expected 186 got 88",
+          "distinct_steps expected 93 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0041",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0041",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            73,
+            78
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0041",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 192 got 92",
+          "distinct_steps expected 96 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0042",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0042",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            77,
+            80
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0042",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 192 got 92",
+          "distinct_steps expected 96 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0043",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0043",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            28
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0043",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            28
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 88",
+          "distinct_steps expected 96 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0044",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0044",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            15,
+            67
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0044",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            7,
+            15
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 88",
+          "distinct_steps expected 95 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0045",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0045",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            3,
+            86
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0045",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            3
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 88",
+          "distinct_steps expected 96 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0046",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0046",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            16
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0046",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            16
+          ]
+        },
+        "differences": [
+          "point_count expected 194 got 88",
+          "distinct_steps expected 97 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0047",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0047",
+          "batch_items": 95,
+          "point_count": 190,
+          "distinct_steps": 95,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            36,
+            62
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0047",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            36
+          ]
+        },
+        "differences": [
+          "point_count expected 190 got 88",
+          "distinct_steps expected 95 got 44",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0048",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0048",
+          "batch_items": 96,
+          "point_count": 192,
+          "distinct_steps": 96,
+          "first_step": 0,
+          "last_step": 96,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            6
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0048",
+          "point_count": 88,
+          "distinct_steps": 44,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            6
+          ]
+        },
+        "differences": [
+          "point_count expected 192 got 88",
+          "distinct_steps expected 96 got 44",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0049",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0049",
+          "batch_items": 98,
+          "point_count": 196,
+          "distinct_steps": 98,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": null
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0049",
+          "point_count": 90,
+          "distinct_steps": 45,
+          "first_step": 0,
+          "last_step": 44,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 196 got 90",
+          "distinct_steps expected 98 got 45",
+          "last_step differs"
+        ]
+      },
+      {
+        "task_id": "perf-1788228051-0050",
+        "pass": false,
+        "expected": {
+          "task_id": "perf-1788228051-0050",
+          "batch_items": 97,
+          "point_count": 194,
+          "distinct_steps": 97,
+          "first_step": 0,
+          "last_step": 97,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": [
+            79
+          ]
+        },
+        "actual": {
+          "task_id": "perf-1788228051-0050",
+          "point_count": 92,
+          "distinct_steps": 46,
+          "first_step": 0,
+          "last_step": 45,
+          "keys": [
+            "loss",
+            "lr"
+          ],
+          "missing_steps": []
+        },
+        "differences": [
+          "point_count expected 194 got 92",
+          "distinct_steps expected 97 got 46",
+          "last_step differs",
+          "missing_steps differ"
+        ]
+      }
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-.PHONY: build test lint check migrate compose-build compose-up compose-stop compose-down compose-test
+.PHONY: build test lint check migrate perf compose-build compose-up compose-stop compose-down compose-test
 
 build:
 	go build -buildvcs=false ./cmd/...
@@ -13,6 +13,9 @@ check: build test lint
 
 migrate:
 	go run ./cmd/migrate
+
+perf:
+	go run ./cmd/perf --report perf-report.json
 
 compose-build:
 	docker compose build

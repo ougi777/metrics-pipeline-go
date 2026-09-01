@@ -38,6 +38,8 @@ type Config struct {
 	DuplicateRate float64
 	FailureRate   float64
 	Audit         bool
+	AuditTimeout  time.Duration
+	AuditInterval time.Duration
 }
 
 func (c Config) Validate() error {
@@ -253,9 +255,7 @@ func RunWithReport(ctx context.Context, cfg Config) (Report, error) {
 	}
 	sort.Slice(report.Results, func(i, j int) bool { return report.Results[i].TaskID < report.Results[j].TaskID })
 	if cfg.Audit {
-		for i := range report.Results {
-			compareAudit(ctx, client, auditEndpoint(cfg.Endpoint), &report.Results[i])
-		}
+		auditReport(ctx, client, auditEndpoint(cfg.Endpoint), report.Results, cfg.AuditTimeout, cfg.AuditInterval)
 	}
 	for _, result := range report.Results {
 		if !result.Pass {
@@ -263,6 +263,53 @@ func RunWithReport(ctx context.Context, cfg Config) (Report, error) {
 		}
 	}
 	return report, nil
+}
+
+func auditReport(ctx context.Context, client *http.Client, base string, results []AuditResult, timeout, interval time.Duration) {
+	if timeout <= 0 {
+		auditOnce(ctx, client, base, results)
+		return
+	}
+	if interval <= 0 {
+		interval = 250 * time.Millisecond
+	}
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	for {
+		auditOnce(ctx, client, base, results)
+		if allAuditResultsPass(results) {
+			return
+		}
+		ticker := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		case <-deadline.C:
+			ticker.Stop()
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func auditOnce(ctx context.Context, client *http.Client, base string, results []AuditResult) {
+	for i := range results {
+		results[i].Pass = true
+		results[i].Actual = nil
+		results[i].Differences = nil
+		results[i].Error = ""
+		compareAudit(ctx, client, base, &results[i])
+	}
+}
+
+func allAuditResultsPass(results []AuditResult) bool {
+	for _, result := range results {
+		if !result.Pass {
+			return false
+		}
+	}
+	return true
 }
 
 func newExpectedState(id string) expectedState {

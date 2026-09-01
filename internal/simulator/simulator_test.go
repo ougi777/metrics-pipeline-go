@@ -108,6 +108,24 @@ func TestCompareAuditPassesExpectedValues(t *testing.T) {
 	}
 }
 
+func TestAuditReportWaitsForConvergence(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 1 {
+			_, _ = w.Write([]byte(`{"task_id":"sim-0001","point_count":2,"distinct_steps":1,"first_step":0,"last_step":0,"keys":["loss","lr"],"missing_steps":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"task_id":"sim-0001","point_count":4,"distinct_steps":2,"first_step":0,"last_step":1,"keys":["loss","lr"],"missing_steps":[]}`))
+	}))
+	defer server.Close()
+	results := []AuditResult{{TaskID: "sim-0001", Expected: Expected{TaskID: "sim-0001", PointCount: 4, DistinctSteps: 2, FirstStep: ptr(0), LastStep: ptr(1), Keys: []string{"loss", "lr"}}}}
+	auditReport(context.Background(), server.Client(), auditEndpoint(server.URL+"/api/v1/ingest/metrics"), results, time.Second, time.Millisecond)
+	if !results[0].Pass || requests < 2 {
+		t.Fatalf("result = %+v, requests = %d", results[0], requests)
+	}
+}
+
 func ptr(value int64) *int64 { return &value }
 
 func TestExpectedStateDeduplicatesReplay(t *testing.T) {
